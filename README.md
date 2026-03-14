@@ -171,5 +171,4 @@ except RateLimitError as e:
 ## Links
 
 - [API Documentation](https://flashalpha.com/docs)
-- [Interactive Playground](https://lab.flashalpha.com/swagger)
-- [GitHub](https://github.com/FlashAlpha/flashalpha-python)
+- [GitHub](https://github.com/FlashAlpha-lab/flashalpha-python)
