@@ -187,6 +187,20 @@ class FlashAlpha:
         """Verbal narrative analysis of exposure. Requires Growth+."""
         return self._get(f"/v1/exposure/narrative/{symbol}")
 
+    def zero_dte(self, symbol: str, *, strike_range: float | None = None) -> dict:
+        """Real-time 0DTE analytics: regime, expected move, pin risk, hedging, decay. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if strike_range is not None:
+            params["strike_range"] = strike_range
+        return self._get(f"/v1/exposure/zero-dte/{symbol}", params or None)
+
+    def exposure_history(self, symbol: str, *, days: int | None = None) -> dict:
+        """Daily exposure snapshots for trend analysis. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if days is not None:
+            params["days"] = days
+        return self._get(f"/v1/exposure/history/{symbol}", params or None)
+
     # ── Pricing & Sizing ────────────────────────────────────────────
 
     def greeks(
@@ -261,6 +275,10 @@ class FlashAlpha:
     def volatility(self, symbol: str) -> dict:
         """Comprehensive volatility analysis. Requires Growth+."""
         return self._get(f"/v1/volatility/{symbol}")
+
+    def adv_volatility(self, symbol: str) -> dict:
+        """Advanced volatility analytics: SVI parameters, variance surface, arbitrage detection, greeks surfaces, variance swap. Requires Alpha+."""
+        return self._get(f"/v1/adv_volatility/{symbol}")
 
     # ── Reference Data ──────────────────────────────────────────────
 

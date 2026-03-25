@@ -126,6 +126,16 @@ def test_narrative(fa):
     assert "regime" in result["narrative"]
 
 
+def test_zero_dte(fa):
+    result = fa.zero_dte("SPY")
+    assert result["symbol"] == "SPY"
+    # May have no 0DTE expiry today — either way, response is valid
+    if not result.get("no_zero_dte"):
+        assert "regime" in result
+        assert "pin_risk" in result
+        assert "decay" in result
+
+
 # ── Pricing ─────────────────────────────────────────────────────────
 
 
@@ -172,6 +182,19 @@ def test_volatility(fa):
     assert "atm_iv" in result
     assert "realized_vol" in result
     assert "iv_rv_spreads" in result
+
+
+def test_adv_volatility(fa):
+    # Alpha+ only — may get 403 on lower plans
+    from flashalpha import TierRestrictedError
+    try:
+        result = fa.adv_volatility("SPY")
+        assert result["symbol"] == "SPY"
+        assert "svi_parameters" in result
+        assert "total_variance_surface" in result
+        assert "arbitrage_flags" in result
+    except TierRestrictedError:
+        pytest.skip("adv_volatility requires Alpha+ plan")
 
 
 # ── Reference Data ──────────────────────────────────────────────────

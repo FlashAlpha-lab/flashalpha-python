@@ -205,6 +205,30 @@ def test_narrative(fa):
     assert "regime" in result["narrative"]
 
 
+@responses.activate
+def test_zero_dte(fa):
+    payload = {"symbol": "SPY", "regime": {"label": "positive_gamma"}, "pin_risk": {"pin_score": 82}, "decay": {"gamma_acceleration": 2.4}}
+    responses.get(f"{BASE}/v1/exposure/zero-dte/SPY", json=payload)
+    result = fa.zero_dte("SPY")
+    assert result["pin_risk"]["pin_score"] == 82
+
+
+@responses.activate
+def test_zero_dte_with_strike_range(fa):
+    payload = {"symbol": "SPY", "strikes": []}
+    responses.get(f"{BASE}/v1/exposure/zero-dte/SPY", json=payload)
+    fa.zero_dte("SPY", strike_range=0.05)
+    assert "strike_range=0.05" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_exposure_history(fa):
+    payload = {"symbol": "SPY", "days": 7, "count": 5, "snapshots": []}
+    responses.get(f"{BASE}/v1/exposure/history/SPY", json=payload)
+    result = fa.exposure_history("SPY", days=7)
+    assert result["days"] == 7
+
+
 # ── Pricing ─────────────────────────────────────────────────────────
 
 
@@ -241,6 +265,14 @@ def test_volatility(fa):
     responses.get(f"{BASE}/v1/volatility/TSLA", json=payload)
     result = fa.volatility("TSLA")
     assert result["atm_iv"] == 48.5
+
+
+@responses.activate
+def test_adv_volatility(fa):
+    payload = {"symbol": "SPY", "svi_parameters": [{"expiry": "2026-04-04", "a": 0.0045}], "arbitrage_flags": []}
+    responses.get(f"{BASE}/v1/adv_volatility/SPY", json=payload)
+    result = fa.adv_volatility("SPY")
+    assert result["svi_parameters"][0]["a"] == 0.0045
 
 
 # ── Reference Data ──────────────────────────────────────────────────
