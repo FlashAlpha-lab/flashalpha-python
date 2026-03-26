@@ -3,6 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/flashalpha)](https://pypi.org/project/flashalpha/)
 [![Python](https://img.shields.io/pypi/pyversions/flashalpha)](https://pypi.org/project/flashalpha/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/FlashAlpha-lab/flashalpha-python/actions/workflows/ci.yml/badge.svg)](https://github.com/FlashAlpha-lab/flashalpha-python/actions/workflows/ci.yml)
 
 **Python client for the FlashAlpha options analytics API.** Access real-time gamma exposure (GEX), delta exposure (DEX), vanna exposure (VEX), charm exposure (CHEX), 0DTE analytics, Black-Scholes greeks, implied volatility, volatility surfaces, dealer positioning, Kelly criterion sizing, and more — all from Python.
 
@@ -213,8 +214,11 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 
 - [FlashAlpha](https://flashalpha.com) — API keys, docs, pricing
 - [API Documentation](https://flashalpha.com/docs)
-- [Examples](https://github.com/FlashAlpha-lab/flashalpha-examples)
-- [GEX Explained](https://github.com/FlashAlpha-lab/gex-explained)
+- [GEX Explained](https://github.com/FlashAlpha-lab/gex-explained) — gamma exposure theory and code
+- [0DTE Options Analytics](https://github.com/FlashAlpha-lab/0dte-options-analytics) — 0DTE pin risk, expected move, dealer hedging
+- [Volatility Surface Python](https://github.com/FlashAlpha-lab/volatility-surface-python) — SVI calibration, variance swap, skew analysis
+- [Examples](https://github.com/FlashAlpha-lab/flashalpha-examples) — runnable tutorials
+- [Awesome Options Analytics](https://github.com/FlashAlpha-lab/awesome-options-analytics) — curated resource list
 
 ## License
 
