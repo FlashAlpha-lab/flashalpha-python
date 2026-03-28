@@ -27,7 +27,7 @@ for strike in gex["strikes"][:5]:
     print(f"  {strike['strike']}: net ${strike['net_gex']:,.0f}")
 ```
 
-Get your free API key at [flashalpha.com](https://flashalpha.com) — 10 requests/day, no credit card.
+Get your free API key at [flashalpha.com](https://flashalpha.com) — no credit card required.
 
 ## Features
 
