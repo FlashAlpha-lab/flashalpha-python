@@ -375,7 +375,7 @@ class FlashAlpha:
             body["limit"] = limit
         if offset is not None:
             body["offset"] = offset
-        return self._post("/v1/screener/live", body)
+        return self._post("/v1/screener", body)
 
     # ── Account & System ────────────────────────────────────────────
 
