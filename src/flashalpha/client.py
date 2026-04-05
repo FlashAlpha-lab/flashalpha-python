@@ -45,6 +45,11 @@ class FlashAlpha:
         resp = self._session.get(url, params=params, timeout=self.timeout)
         return self._handle(resp)
 
+    def _post(self, path: str, json_body: dict[str, Any] | None = None) -> dict:
+        url = f"{self.base_url}{path}"
+        resp = self._session.post(url, json=json_body, timeout=self.timeout)
+        return self._handle(resp)
+
     def _handle(self, resp: requests.Response) -> dict:
         if resp.status_code == 200:
             return resp.json()
@@ -293,6 +298,84 @@ class FlashAlpha:
     def symbols(self) -> dict:
         """Currently queried symbols with live data."""
         return self._get("/v1/symbols")
+
+    # ── Screener ────────────────────────────────────────────────────
+
+    def screener(
+        self,
+        *,
+        filters: dict[str, Any] | None = None,
+        sort: list[dict[str, Any]] | None = None,
+        select: list[str] | None = None,
+        formulas: list[dict[str, str]] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict:
+        """Live options screener — filter/rank symbols by gamma exposure, VRP,
+        volatility, greeks, and more.
+
+        Powered by an in-memory store updated every 5-10s from live market data.
+        Growth: 10-symbol universe, up to 10 rows. Alpha: ~250 symbols, up to 50
+        rows, formulas, and harvest/dealer-flow-risk scores.
+
+        Parameters
+        ----------
+        filters : dict, optional
+            Recursive filter tree. Leaf: {"field": "atm_iv", "operator": "gte",
+            "value": 20}. Group: {"op": "and", "conditions": [...]}. Supports
+            dotted prefixes `expiries.X`, `strikes.X`, `contracts.X` for
+            cascading filters.
+        sort : list of dict, optional
+            Sort specs (primary first), e.g.
+            [{"field": "harvest_score", "direction": "desc"}].
+            Also accepts {"formula": "alias_name", ...}.
+        select : list of str, optional
+            Field names to return, or ["*"] for the full flat object.
+        formulas : list of dict, optional
+            Computed fields (Alpha only), e.g.
+            [{"alias": "vrp_ratio", "expression": "atm_iv / rv_20d"}].
+        limit : int, optional
+            Row cap. 1-10 on Growth, 1-50 on Alpha. Default 50.
+        offset : int, optional
+            Pagination offset (Alpha only).
+
+        Returns
+        -------
+        dict
+            {"meta": {"total_count": ..., "tier": ..., ...},
+             "data": [{"symbol": ..., ...}, ...]}
+
+        Examples
+        --------
+        Harvestable VRP screen:
+
+        >>> fa.screener(
+        ...     filters={
+        ...         "op": "and",
+        ...         "conditions": [
+        ...             {"field": "regime", "operator": "eq", "value": "positive_gamma"},
+        ...             {"field": "vrp_regime", "operator": "eq", "value": "harvestable"},
+        ...             {"field": "harvest_score", "operator": "gte", "value": 65},
+        ...         ],
+        ...     },
+        ...     sort=[{"field": "harvest_score", "direction": "desc"}],
+        ...     select=["symbol", "price", "harvest_score", "dealer_flow_risk"],
+        ... )
+        """
+        body: dict[str, Any] = {}
+        if filters is not None:
+            body["filters"] = filters
+        if sort is not None:
+            body["sort"] = sort
+        if select is not None:
+            body["select"] = select
+        if formulas is not None:
+            body["formulas"] = formulas
+        if limit is not None:
+            body["limit"] = limit
+        if offset is not None:
+            body["offset"] = offset
+        return self._post("/v1/screener/live", body)
 
     # ── Account & System ────────────────────────────────────────────
 

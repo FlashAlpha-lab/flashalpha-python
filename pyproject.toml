@@ -4,14 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flashalpha"
-version = "0.2.1"
-description = "Python SDK for the FlashAlpha options analytics API — gamma exposure (GEX), delta, vanna, charm, greeks, 0DTE analytics, volatility surfaces, and more."
+version = "0.3.0"
+description = "Python SDK for the FlashAlpha options analytics API — live options screener, gamma exposure (GEX), VRP, delta, vanna, charm, greeks, 0DTE analytics, volatility surfaces, and more."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "FlashAlpha", email = "tom@flashalpha.com" }]
 keywords = [
     "options",
+    "options screener",
+    "live options screener",
     "gamma exposure",
     "gex",
     "greeks",
@@ -34,6 +36,12 @@ keywords = [
     "vol surface",
     "SVI",
     "variance swap",
+    "variance risk premium",
+    "VRP",
+    "harvest score",
+    "short vol",
+    "vol selling",
+    "dealer flow",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

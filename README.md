@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/FlashAlpha-lab/flashalpha-python/actions/workflows/ci.yml/badge.svg)](https://github.com/FlashAlpha-lab/flashalpha-python/actions/workflows/ci.yml)
 
-**Python client for the FlashAlpha options analytics API.** Access real-time gamma exposure (GEX), delta exposure (DEX), vanna exposure (VEX), charm exposure (CHEX), 0DTE analytics, Black-Scholes greeks, implied volatility, volatility surfaces, dealer positioning, Kelly criterion sizing, and more — all from Python.
+**Python client for the FlashAlpha options analytics API.** Access a **live options screener** (filter/rank symbols by gamma exposure, VRP, IV, greeks, harvest scores, and custom formulas), real-time gamma exposure (GEX), delta exposure (DEX), vanna exposure (VEX), charm exposure (CHEX), 0DTE analytics, Black-Scholes greeks, implied volatility, volatility surfaces, dealer positioning, Kelly criterion sizing, and more — all from Python.
 
 ```bash
 pip install flashalpha
@@ -30,6 +30,45 @@ for strike in gex["strikes"][:5]:
 Get your free API key at [flashalpha.com](https://flashalpha.com) — no credit card required.
 
 ## Features
+
+### Live Options Screener
+
+Filter and rank symbols in real time across your universe by gamma exposure,
+VRP, implied volatility, greeks, harvest scores, dealer flow risk, and custom
+formulas. Data is live from an in-memory store refreshed every 5-10 seconds.
+
+```python
+# Harvestable VRP setups with low dealer flow risk
+result = fa.screener(
+    filters={
+        "op": "and",
+        "conditions": [
+            {"field": "regime", "operator": "eq", "value": "positive_gamma"},
+            {"field": "vrp_regime", "operator": "eq", "value": "harvestable"},
+            {"field": "dealer_flow_risk", "operator": "lte", "value": 40},
+            {"field": "harvest_score", "operator": "gte", "value": 65},
+        ],
+    },
+    sort=[{"field": "harvest_score", "direction": "desc"}],
+    select=["symbol", "price", "harvest_score", "dealer_flow_risk"],
+)
+for row in result["data"]:
+    print(f"{row['symbol']}: score={row['harvest_score']} risk={row['dealer_flow_risk']}")
+
+# Custom formula — rank by IV premium over realized vol
+result = fa.screener(
+    formulas=[{"alias": "iv_premium", "expression": "atm_iv - rv_20d"}],
+    sort=[{"formula": "iv_premium", "direction": "desc"}],
+    select=["symbol", "atm_iv", "rv_20d", "iv_premium"],
+    limit=20,
+)
+```
+
+Cascading filters on expiries, strikes, and contracts (e.g. `expiries.days_to_expiry`,
+`strikes.call_oi`, `contracts.delta`) trim the tree at each level and return only the
+matching subtree. See the [Screener spec](https://flashalpha.com/docs/lab-api-screener)
+and [cookbook](https://flashalpha.com/docs/lab-api-screener-cookbook) for all fields,
+operators, and recipes.
 
 ### Options Exposure Analytics
 
@@ -202,6 +241,7 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.greeks(...)` | BSM greeks (1st, 2nd, 3rd order) | Free+ |
 | `fa.iv(...)` | Implied volatility solver | Free+ |
 | `fa.kelly(...)` | Kelly criterion sizing | Growth+ |
+| `fa.screener(...)` | **Live options screener** — filter/rank by GEX, VRP, IV, greeks, formulas | Growth+ |
 | `fa.volatility(symbol)` | Comprehensive volatility analytics | Growth+ |
 | `fa.adv_volatility(symbol)` | SVI, variance surface, arb detection | Alpha+ |
 | `fa.tickers()` | All available stock tickers | Free+ |
@@ -210,14 +250,24 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.account()` | Account info and quota | Free+ |
 | `fa.health()` | Health check | Public |
 
+## Other SDKs
+
+| Language | Package | Repository |
+|----------|---------|------------|
+| JavaScript | `npm i flashalpha` | [flashalpha-js](https://github.com/FlashAlpha-lab/flashalpha-js) |
+| .NET | `dotnet add package FlashAlpha` | [flashalpha-dotnet](https://github.com/FlashAlpha-lab/flashalpha-dotnet) |
+| Java | Maven Central | [flashalpha-java](https://github.com/FlashAlpha-lab/flashalpha-java) |
+| Go | `go get github.com/FlashAlpha-lab/flashalpha-go` | [flashalpha-go](https://github.com/FlashAlpha-lab/flashalpha-go) |
+| MCP | Claude / LLM tool server | [flashalpha-mcp](https://github.com/FlashAlpha-lab/flashalpha-mcp) |
+
 ## Links
 
 - [FlashAlpha](https://flashalpha.com) — API keys, docs, pricing
 - [API Documentation](https://flashalpha.com/docs)
+- [Examples](https://github.com/FlashAlpha-lab/flashalpha-examples) — runnable tutorials
 - [GEX Explained](https://github.com/FlashAlpha-lab/gex-explained) — gamma exposure theory and code
 - [0DTE Options Analytics](https://github.com/FlashAlpha-lab/0dte-options-analytics) — 0DTE pin risk, expected move, dealer hedging
 - [Volatility Surface Python](https://github.com/FlashAlpha-lab/volatility-surface-python) — SVI calibration, variance swap, skew analysis
-- [Examples](https://github.com/FlashAlpha-lab/flashalpha-examples) — runnable tutorials
 - [Awesome Options Analytics](https://github.com/FlashAlpha-lab/awesome-options-analytics) — curated resource list
 
 ## License

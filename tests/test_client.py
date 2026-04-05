@@ -321,6 +321,61 @@ def test_health(fa):
     assert result["status"] == "Healthy"
 
 
+# ── Screener ───────────────────────────────────────────────────────
+
+
+@responses.activate
+def test_screener_empty(fa):
+    payload = {
+        "meta": {"total_count": 10, "returned_count": 10, "tier": "growth"},
+        "data": [{"symbol": "SPY", "price": 656.01}],
+    }
+    responses.post(f"{BASE}/v1/screener/live", json=payload)
+    result = fa.screener()
+    assert result["meta"]["tier"] == "growth"
+    assert result["data"][0]["symbol"] == "SPY"
+
+
+@responses.activate
+def test_screener_with_filters(fa):
+    payload = {"meta": {"total_count": 2, "tier": "alpha"}, "data": []}
+    responses.post(f"{BASE}/v1/screener/live", json=payload)
+    fa.screener(
+        filters={
+            "op": "and",
+            "conditions": [
+                {"field": "regime", "operator": "eq", "value": "positive_gamma"},
+                {"field": "harvest_score", "operator": "gte", "value": 65},
+            ],
+        },
+        sort=[{"field": "harvest_score", "direction": "desc"}],
+        select=["symbol", "price", "harvest_score"],
+        limit=20,
+    )
+    # Verify request body
+    import json as _json
+    body = _json.loads(responses.calls[0].request.body)
+    assert body["filters"]["op"] == "and"
+    assert len(body["filters"]["conditions"]) == 2
+    assert body["limit"] == 20
+    assert body["select"] == ["symbol", "price", "harvest_score"]
+
+
+@responses.activate
+def test_screener_with_formulas(fa):
+    payload = {"meta": {"total_count": 1, "tier": "alpha"}, "data": []}
+    responses.post(f"{BASE}/v1/screener/live", json=payload)
+    fa.screener(
+        formulas=[{"alias": "vrp_ratio", "expression": "atm_iv / rv_20d"}],
+        filters={"formula": "vrp_ratio", "operator": "gte", "value": 1.2},
+        sort=[{"formula": "vrp_ratio", "direction": "desc"}],
+    )
+    import json as _json
+    body = _json.loads(responses.calls[0].request.body)
+    assert body["formulas"][0]["alias"] == "vrp_ratio"
+    assert body["filters"]["formula"] == "vrp_ratio"
+
+
 # ── Client config ──────────────────────────────────────────────────
 
 
