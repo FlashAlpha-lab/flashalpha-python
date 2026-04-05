@@ -323,6 +323,12 @@ def test_health(fa):
 
 # ── Screener ───────────────────────────────────────────────────────
 
+import json as _json
+
+
+def _screener_body(call):
+    return _json.loads(call.request.body)
+
 
 @responses.activate
 def test_screener_empty(fa):
@@ -334,12 +340,34 @@ def test_screener_empty(fa):
     result = fa.screener()
     assert result["meta"]["tier"] == "growth"
     assert result["data"][0]["symbol"] == "SPY"
+    # Empty body
+    assert _screener_body(responses.calls[0]) == {}
 
 
 @responses.activate
-def test_screener_with_filters(fa):
-    payload = {"meta": {"total_count": 2, "tier": "alpha"}, "data": []}
-    responses.post(f"{BASE}/v1/screener/live", json=payload)
+def test_screener_sends_post_with_json_content_type(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(limit=5)
+    req = responses.calls[0].request
+    assert req.method == "POST"
+    assert req.url == f"{BASE}/v1/screener/live"
+    assert req.headers.get("Content-Type") == "application/json"
+    assert req.headers.get("X-Api-Key") == "test-key"
+
+
+@responses.activate
+def test_screener_leaf_filter(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(filters={"field": "regime", "operator": "eq", "value": "positive_gamma"})
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["field"] == "regime"
+    assert body["filters"]["operator"] == "eq"
+    assert body["filters"]["value"] == "positive_gamma"
+
+
+@responses.activate
+def test_screener_and_group(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
     fa.screener(
         filters={
             "op": "and",
@@ -352,28 +380,253 @@ def test_screener_with_filters(fa):
         select=["symbol", "price", "harvest_score"],
         limit=20,
     )
-    # Verify request body
-    import json as _json
-    body = _json.loads(responses.calls[0].request.body)
+    body = _screener_body(responses.calls[0])
     assert body["filters"]["op"] == "and"
     assert len(body["filters"]["conditions"]) == 2
     assert body["limit"] == 20
     assert body["select"] == ["symbol", "price", "harvest_score"]
+    assert body["sort"] == [{"field": "harvest_score", "direction": "desc"}]
+
+
+@responses.activate
+def test_screener_or_group(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(
+        filters={
+            "op": "or",
+            "conditions": [
+                {"field": "vrp_regime", "operator": "eq", "value": "toxic_short_vol"},
+                {"field": "vrp_regime", "operator": "eq", "value": "event_only"},
+            ],
+        },
+    )
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["op"] == "or"
+
+
+@responses.activate
+def test_screener_nested_and_inside_or(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(
+        filters={
+            "op": "or",
+            "conditions": [
+                {
+                    "op": "and",
+                    "conditions": [
+                        {"field": "regime", "operator": "eq", "value": "positive_gamma"},
+                        {"field": "harvest_score", "operator": "gte", "value": 70},
+                    ],
+                },
+                {
+                    "op": "and",
+                    "conditions": [
+                        {"field": "regime", "operator": "eq", "value": "negative_gamma"},
+                        {"field": "atm_iv", "operator": "gte", "value": 50},
+                    ],
+                },
+            ],
+        },
+    )
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["op"] == "or"
+    assert body["filters"]["conditions"][0]["op"] == "and"
+    assert body["filters"]["conditions"][1]["op"] == "and"
+
+
+@responses.activate
+def test_screener_between_operator(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(filters={"field": "atm_iv", "operator": "between", "value": [15, 25]})
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["operator"] == "between"
+    assert body["filters"]["value"] == [15, 25]
+
+
+@responses.activate
+def test_screener_in_operator(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(filters={"field": "term_state", "operator": "in", "value": ["contango", "mixed"]})
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["operator"] == "in"
+    assert body["filters"]["value"] == ["contango", "mixed"]
+
+
+@responses.activate
+def test_screener_null_operators(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(filters={"field": "vrp_regime", "operator": "is_not_null"})
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["operator"] == "is_not_null"
+    assert "value" not in body["filters"]
+
+
+@responses.activate
+def test_screener_cascading_filters(fa):
+    """Cascading filters on expiries/strikes/contracts levels."""
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(
+        filters={
+            "op": "and",
+            "conditions": [
+                {"field": "regime", "operator": "eq", "value": "positive_gamma"},
+                {"field": "expiries.days_to_expiry", "operator": "lte", "value": 14},
+                {"field": "strikes.call_oi", "operator": "gte", "value": 2000},
+                {"field": "contracts.type", "operator": "eq", "value": "C"},
+                {"field": "contracts.delta", "operator": "gte", "value": 0.3},
+            ],
+        },
+        select=["*"],
+    )
+    body = _screener_body(responses.calls[0])
+    fields = [c["field"] for c in body["filters"]["conditions"]]
+    assert "expiries.days_to_expiry" in fields
+    assert "strikes.call_oi" in fields
+    assert "contracts.type" in fields
+    assert "contracts.delta" in fields
+    assert body["select"] == ["*"]
 
 
 @responses.activate
 def test_screener_with_formulas(fa):
-    payload = {"meta": {"total_count": 1, "tier": "alpha"}, "data": []}
-    responses.post(f"{BASE}/v1/screener/live", json=payload)
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
     fa.screener(
         formulas=[{"alias": "vrp_ratio", "expression": "atm_iv / rv_20d"}],
         filters={"formula": "vrp_ratio", "operator": "gte", "value": 1.2},
         sort=[{"formula": "vrp_ratio", "direction": "desc"}],
     )
-    import json as _json
-    body = _json.loads(responses.calls[0].request.body)
+    body = _screener_body(responses.calls[0])
     assert body["formulas"][0]["alias"] == "vrp_ratio"
+    assert body["formulas"][0]["expression"] == "atm_iv / rv_20d"
     assert body["filters"]["formula"] == "vrp_ratio"
+    assert body["sort"][0]["formula"] == "vrp_ratio"
+
+
+@responses.activate
+def test_screener_inline_formula(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(
+        filters={"formula": "atm_iv - rv_20d", "operator": "gt", "value": 6},
+    )
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["formula"] == "atm_iv - rv_20d"
+
+
+@responses.activate
+def test_screener_multi_sort(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(
+        sort=[
+            {"field": "dealer_flow_risk", "direction": "asc"},
+            {"field": "harvest_score", "direction": "desc"},
+        ],
+        select=["symbol", "dealer_flow_risk", "harvest_score"],
+    )
+    body = _screener_body(responses.calls[0])
+    assert len(body["sort"]) == 2
+    assert body["sort"][0]["direction"] == "asc"
+    assert body["sort"][1]["direction"] == "desc"
+
+
+@responses.activate
+def test_screener_pagination(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(limit=10, offset=10)
+    body = _screener_body(responses.calls[0])
+    assert body["limit"] == 10
+    assert body["offset"] == 10
+
+
+@responses.activate
+def test_screener_negative_number(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(filters={"field": "net_gex", "operator": "lt", "value": -500000})
+    body = _screener_body(responses.calls[0])
+    assert body["filters"]["value"] == -500000
+
+
+@responses.activate
+def test_screener_select_star(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(select=["*"])
+    body = _screener_body(responses.calls[0])
+    assert body["select"] == ["*"]
+
+
+@responses.activate
+def test_screener_select_star_with_formula(fa):
+    responses.post(f"{BASE}/v1/screener/live", json={"meta": {}, "data": []})
+    fa.screener(
+        formulas=[{"alias": "ratio", "expression": "call_wall / (put_wall + 30)"}],
+        select=["*", "ratio"],
+    )
+    body = _screener_body(responses.calls[0])
+    assert body["select"] == ["*", "ratio"]
+
+
+@responses.activate
+def test_screener_returns_response_structure(fa):
+    payload = {
+        "meta": {
+            "total_count": 7,
+            "returned_count": 7,
+            "universe_size": 250,
+            "offset": 0,
+            "limit": 50,
+            "tier": "alpha",
+            "as_of": "2026-04-05T10:30:00Z",
+        },
+        "data": [
+            {"symbol": "SPY", "price": 656.01, "regime": "positive_gamma", "atm_iv": 20.7}
+        ],
+    }
+    responses.post(f"{BASE}/v1/screener/live", json=payload)
+    result = fa.screener()
+    assert result["meta"]["tier"] == "alpha"
+    assert result["meta"]["universe_size"] == 250
+    assert result["data"][0]["price"] == 656.01
+
+
+@responses.activate
+def test_screener_tier_restricted_alpha_field(fa):
+    err_body = {
+        "status": "ERROR",
+        "error": "validation_error",
+        "message": "Field 'harvest_score' requires the Alpha plan or higher.",
+    }
+    responses.post(f"{BASE}/v1/screener/live", json=err_body, status=400)
+    with pytest.raises(FlashAlphaError) as exc:
+        fa.screener(filters={"field": "harvest_score", "operator": "gte", "value": 65})
+    assert exc.value.status_code == 400
+    assert "Alpha" in str(exc.value)
+
+
+@responses.activate
+def test_screener_formula_error(fa):
+    err_body = {
+        "status": "ERROR",
+        "error": "formula_error",
+        "message": "Unexpected token '+' at position 5",
+    }
+    responses.post(f"{BASE}/v1/screener/live", json=err_body, status=400)
+    with pytest.raises(FlashAlphaError):
+        fa.screener(formulas=[{"alias": "bad", "expression": "+ atm_iv"}])
+
+
+@responses.activate
+def test_screener_tier_restricted_403(fa):
+    err_body = {
+        "status": "ERROR",
+        "error": "tier_restricted",
+        "message": "Screener requires Growth plan or higher.",
+        "current_plan": "Free",
+        "required_plan": "Growth",
+    }
+    responses.post(f"{BASE}/v1/screener/live", json=err_body, status=403)
+    with pytest.raises(TierRestrictedError) as exc:
+        fa.screener()
+    assert exc.value.current_plan == "Free"
+    assert exc.value.required_plan == "Growth"
 
 
 # ── Client config ──────────────────────────────────────────────────

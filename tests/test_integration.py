@@ -219,3 +219,86 @@ def test_symbols(fa):
     result = fa.symbols()
     assert "symbols" in result
     assert isinstance(result["symbols"], list)
+
+
+# ── Screener ────────────────────────────────────────────────────────
+
+
+def test_screener_empty(fa):
+    """Empty request returns default universe for the account's tier."""
+    result = fa.screener()
+    assert "meta" in result
+    assert "data" in result
+    assert result["meta"]["tier"] in ("growth", "alpha")
+    assert isinstance(result["data"], list)
+
+
+def test_screener_simple_filter(fa):
+    """Leaf filter on a universally-available field."""
+    result = fa.screener(
+        filters={"field": "regime", "operator": "in", "value": ["positive_gamma", "negative_gamma"]},
+        select=["symbol", "price", "regime"],
+        limit=5,
+    )
+    assert "data" in result
+    for row in result["data"]:
+        assert row["regime"] in ("positive_gamma", "negative_gamma")
+
+
+def test_screener_and_group(fa):
+    result = fa.screener(
+        filters={
+            "op": "and",
+            "conditions": [
+                {"field": "atm_iv", "operator": "gte", "value": 0},
+                {"field": "atm_iv", "operator": "lte", "value": 500},
+            ],
+        },
+        sort=[{"field": "atm_iv", "direction": "desc"}],
+        select=["symbol", "atm_iv"],
+        limit=5,
+    )
+    assert result["meta"]["returned_count"] <= 5
+    # Sorted descending
+    ivs = [row["atm_iv"] for row in result["data"] if row.get("atm_iv") is not None]
+    if len(ivs) >= 2:
+        assert ivs == sorted(ivs, reverse=True)
+
+
+def test_screener_between_operator(fa):
+    result = fa.screener(
+        filters={"field": "atm_iv", "operator": "between", "value": [0, 500]},
+        limit=3,
+    )
+    assert "data" in result
+
+
+def test_screener_select_star(fa):
+    result = fa.screener(select=["*"], limit=1)
+    if result["data"]:
+        row = result["data"][0]
+        assert "symbol" in row
+        # select=["*"] returns the full flat object
+        assert "price" in row
+
+
+def test_screener_limit_respected(fa):
+    result = fa.screener(limit=3)
+    assert result["meta"]["returned_count"] <= 3
+    assert len(result["data"]) <= 3
+
+
+def test_screener_meta_fields_present(fa):
+    result = fa.screener()
+    meta = result["meta"]
+    assert "total_count" in meta
+    assert "returned_count" in meta
+    assert "universe_size" in meta
+    assert "tier" in meta
+    assert "as_of" in meta
+
+
+def test_screener_invalid_field_raises(fa):
+    """Unknown field should trigger a validation error."""
+    with pytest.raises(Exception):
+        fa.screener(filters={"field": "not_a_real_field_xyz", "operator": "eq", "value": 1})
