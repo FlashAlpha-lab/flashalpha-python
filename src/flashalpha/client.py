@@ -299,6 +299,25 @@ class FlashAlpha:
         """Currently queried symbols with live data."""
         return self._get("/v1/symbols")
 
+    # ── Max Pain ────────────────────────────────────────────────────
+
+    def max_pain(self, symbol: str, *, expiration: str | None = None) -> dict:
+        """Max pain analysis with dealer alignment overlay, pain curve, OI
+        breakdown, expected move context, pin probability, and multi-expiry
+        calendar. Requires Growth+.
+
+        Parameters
+        ----------
+        symbol : str
+            Underlying symbol.
+        expiration : str, optional
+            Filter to single expiry (YYYY-MM-DD). Omit for full-chain analysis.
+        """
+        params: dict[str, Any] = {}
+        if expiration:
+            params["expiration"] = expiration
+        return self._get(f"/v1/maxpain/{symbol}", params or None)
+
     # ── Screener ────────────────────────────────────────────────────
 
     def screener(

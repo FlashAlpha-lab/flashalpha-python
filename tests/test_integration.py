@@ -221,6 +221,55 @@ def test_symbols(fa):
     assert isinstance(result["symbols"], list)
 
 
+# ── Max Pain ─────────────────────────────────────────────────────────
+
+
+def test_max_pain(fa):
+    result = fa.max_pain("SPY")
+    assert "max_pain_strike" in result
+    assert "pain_curve" in result
+    assert "dealer_alignment" in result
+    assert "pin_probability" in result
+    assert isinstance(result["pain_curve"], list)
+
+
+def test_max_pain_response_fields(fa):
+    result = fa.max_pain("SPY")
+    assert "distance" in result
+    assert result["distance"]["direction"] in ("above", "below", "at")
+    assert result["signal"] in ("bullish", "bearish", "neutral")
+    assert result["regime"] in ("positive_gamma", "negative_gamma")
+
+
+def test_max_pain_with_expiration(fa):
+    # Get first available expiration
+    opts = fa.options("SPY")
+    if opts.get("expirations") and len(opts["expirations"]) > 0:
+        exp = opts["expirations"][0]["expiration"]
+        result = fa.max_pain("SPY", expiration=exp)
+        assert result["expiration"] == exp
+        assert "max_pain_strike" in result
+
+
+def test_max_pain_oi_by_strike(fa):
+    result = fa.max_pain("SPY")
+    if result.get("oi_by_strike"):
+        row = result["oi_by_strike"][0]
+        assert "strike" in row
+        assert "call_oi" in row
+        assert "put_oi" in row
+
+
+def test_max_pain_multi_expiry_calendar(fa):
+    """Without expiration filter, max_pain_by_expiration should be populated."""
+    result = fa.max_pain("SPY")
+    if result.get("max_pain_by_expiration"):
+        entry = result["max_pain_by_expiration"][0]
+        assert "expiration" in entry
+        assert "max_pain_strike" in entry
+        assert "dte" in entry
+
+
 # ── Screener ────────────────────────────────────────────────────────
 
 

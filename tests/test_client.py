@@ -321,6 +321,75 @@ def test_health(fa):
     assert result["status"] == "Healthy"
 
 
+# ── Max Pain ────────────────────────────────────────────────────────
+
+
+@responses.activate
+def test_max_pain(fa):
+    payload = {"symbol": "SPY", "max_pain_strike": 545, "pin_probability": 68}
+    responses.get(f"{BASE}/v1/maxpain/SPY", json=payload)
+    result = fa.max_pain("SPY")
+    assert result["max_pain_strike"] == 545
+    assert result["pin_probability"] == 68
+
+
+@responses.activate
+def test_max_pain_calls_correct_path(fa):
+    responses.get(f"{BASE}/v1/maxpain/AAPL", json={})
+    fa.max_pain("AAPL")
+    assert "/v1/maxpain/AAPL" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_max_pain_with_expiration(fa):
+    responses.get(f"{BASE}/v1/maxpain/SPY", json={})
+    fa.max_pain("SPY", expiration="2026-04-17")
+    assert "expiration=2026-04-17" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_max_pain_without_expiration(fa):
+    responses.get(f"{BASE}/v1/maxpain/SPY", json={"max_pain_by_expiration": [{"expiration": "2026-04-17"}]})
+    result = fa.max_pain("SPY")
+    assert "max_pain_by_expiration" in result
+
+
+@responses.activate
+def test_max_pain_full_response(fa):
+    payload = {
+        "symbol": "SPY",
+        "underlying_price": 548.32,
+        "max_pain_strike": 545,
+        "distance": {"absolute": 3.32, "percent": 0.61, "direction": "above"},
+        "signal": "neutral",
+        "put_call_oi_ratio": 1.284,
+        "pain_curve": [{"strike": 545, "total_pain": 3700000}],
+        "oi_by_strike": [{"strike": 545, "call_oi": 35000, "put_oi": 42000}],
+        "dealer_alignment": {"alignment": "converging", "gamma_flip": 546},
+        "regime": "positive_gamma",
+        "expected_move": {"max_pain_within_expected_range": True},
+        "pin_probability": 68,
+    }
+    responses.get(f"{BASE}/v1/maxpain/SPY", json=payload)
+    result = fa.max_pain("SPY")
+    assert result["distance"]["direction"] == "above"
+    assert result["dealer_alignment"]["alignment"] == "converging"
+    assert result["signal"] == "neutral"
+    assert result["regime"] == "positive_gamma"
+
+
+@responses.activate
+def test_max_pain_403_tier_restricted(fa):
+    responses.get(
+        f"{BASE}/v1/maxpain/SPY",
+        json={"status": "ERROR", "error": "tier_restricted", "message": "Requires Growth plan.", "current_plan": "Free", "required_plan": "Growth"},
+        status=403,
+    )
+    with pytest.raises(TierRestrictedError) as exc:
+        fa.max_pain("SPY")
+    assert exc.value.current_plan == "Free"
+
+
 # ── Screener ───────────────────────────────────────────────────────
 
 import json as _json
