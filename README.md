@@ -241,6 +241,7 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.greeks(...)` | BSM greeks (1st, 2nd, 3rd order) | Free+ |
 | `fa.iv(...)` | Implied volatility solver | Free+ |
 | `fa.kelly(...)` | Kelly criterion sizing | Growth+ |
+| `fa.max_pain(symbol)` | Max pain analysis with dealer alignment, pain curve, pin probability | Growth+ |
 | `fa.screener(...)` | **Live options screener** — filter/rank by GEX, VRP, IV, greeks, formulas | Growth+ |
 | `fa.volatility(symbol)` | Comprehensive volatility analytics | Growth+ |
 | `fa.adv_volatility(symbol)` | SVI, variance surface, arb detection | Alpha+ |
