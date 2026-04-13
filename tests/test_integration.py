@@ -351,3 +351,218 @@ def test_screener_invalid_field_raises(fa):
     """Unknown field should trigger a validation error."""
     with pytest.raises(Exception):
         fa.screener(filters={"field": "not_a_real_field_xyz", "operator": "eq", "value": 1})
+
+
+# ── Customer regression tests ───────────────────────────────────────
+#
+# Each test replays one of the bugs an Alpha user hit during integration
+# and asserts the SDK's public surface now behaves correctly. Written
+# against fa.vrp() / fa.stock_summary() / fa.screener() — the methods
+# the customer's daemon actually calls.
+
+
+# Issue #5 — SDK was missing vrp(). Customer had to build a REST
+# fallback. The method is now on the client.
+
+def test_vrp_method_exists_on_client(fa):
+    """fa.vrp() is a callable method on the SDK client."""
+    assert hasattr(fa, "vrp") and callable(fa.vrp)
+
+
+def test_vrp_returns_full_payload(fa):
+    """fa.vrp(symbol) returns the full VRP payload — every documented
+    field is readable via its documented access path and has a sane type.
+    This is the positive mirror of the customer's 'silent null' bug.
+    """
+    r = fa.vrp("SPY")
+
+    # Top-level scalars
+    assert r["symbol"] == "SPY"
+    assert isinstance(r["underlying_price"], (int, float)) and r["underlying_price"] > 0
+    assert isinstance(r["as_of"], str) and len(r["as_of"]) > 0
+    assert isinstance(r["market_open"], bool)
+    assert isinstance(r["net_harvest_score"], (int, float))
+    assert isinstance(r["dealer_flow_risk"], (int, float))
+
+    # response["vrp"] — core metrics
+    core = r["vrp"]
+    for key in ("atm_iv", "rv_5d", "rv_10d", "rv_20d", "rv_30d",
+                "vrp_5d", "vrp_10d", "vrp_20d", "vrp_30d",
+                "z_score", "percentile", "history_days"):
+        assert key in core, f"vrp.{key} missing"
+    assert isinstance(core["z_score"], (int, float))
+    assert isinstance(core["percentile"], int) and 0 <= core["percentile"] <= 100
+
+    # response["directional"] — skew metrics
+    d = r["directional"]
+    for key in ("put_wing_iv_25d", "call_wing_iv_25d",
+                "downside_rv_20d", "upside_rv_20d",
+                "downside_vrp", "upside_vrp"):
+        assert key in d, f"directional.{key} missing"
+
+    # response["regime"] — regime snapshot
+    reg = r["regime"]
+    assert reg["gamma"] in ("positive_gamma", "negative_gamma", "neutral")
+    assert "net_gex" in reg and isinstance(reg["net_gex"], (int, float))
+    assert "vrp_regime" in reg
+
+    # response["term_vrp"] — list of term-structure points
+    assert isinstance(r["term_vrp"], list)
+    if r["term_vrp"]:
+        pt = r["term_vrp"][0]
+        for key in ("dte", "iv", "rv", "vrp"):
+            assert key in pt, f"term_vrp[0].{key} missing"
+
+    # response["gex_conditioned"] — harvest scoring
+    if r.get("gex_conditioned") is not None:
+        gc = r["gex_conditioned"]
+        assert "harvest_score" in gc
+        assert "regime" in gc
+        assert "interpretation" in gc
+        assert isinstance(gc["harvest_score"], (int, float))
+
+    # response["strategy_scores"] — 0-100 scores per strategy
+    if r.get("strategy_scores") is not None:
+        ss = r["strategy_scores"]
+        for key in ("short_put_spread", "short_strangle",
+                    "iron_condor", "calendar_spread"):
+            if ss.get(key) is not None:
+                assert 0 <= ss[key] <= 100, f"{key}={ss[key]} out of range"
+
+    # response["macro"] — optional macro context
+    if r.get("macro") is not None:
+        assert "vix" in r["macro"]
+
+
+# Issue #1 — Nested response structures. Customer accessed
+# response["z_score"] directly and got None. The field lives at
+# response["vrp"]["z_score"]. Tests assert the documented nesting.
+
+def test_vrp_core_metrics_are_nested_under_vrp(fa):
+    """z_score, percentile, atm_iv, rv_20d live under response['vrp']."""
+    r = fa.vrp("SPY")
+    assert "z_score" not in r, "z_score must NOT be top-level (customer trap)"
+    assert "percentile" not in r
+    assert "atm_iv" not in r
+    core = r["vrp"]
+    for key in ("z_score", "percentile", "atm_iv", "rv_20d", "vrp_20d"):
+        assert key in core, f"vrp.{key} missing"
+
+
+def test_vrp_harvest_score_is_under_gex_conditioned(fa):
+    """harvest_score lives under response['gex_conditioned']."""
+    r = fa.vrp("SPY")
+    assert "harvest_score" not in r, "harvest_score must NOT be top-level"
+    if r.get("gex_conditioned") is not None:
+        assert "harvest_score" in r["gex_conditioned"]
+        assert "regime" in r["gex_conditioned"]
+
+
+def test_vrp_net_gex_is_under_regime(fa):
+    """On the vrp payload, net_gex and gamma_flip live under 'regime'."""
+    r = fa.vrp("SPY")
+    assert "net_gex" not in r, "net_gex must NOT be top-level on vrp"
+    assert "gamma_flip" not in r
+    assert "net_gex" in r["regime"]
+    assert "gamma" in r["regime"]
+
+
+def test_vrp_composite_scores_are_top_level(fa):
+    """net_harvest_score and dealer_flow_risk ARE top-level (exception)."""
+    r = fa.vrp("SPY")
+    assert "net_harvest_score" in r
+    assert "dealer_flow_risk" in r
+
+
+def test_exposure_summary_net_gex_is_under_exposures(fa):
+    """On exposure_summary, net_gex lives under response['exposures'].
+    Validates the full nested read, not just key presence.
+    """
+    r = fa.exposure_summary("SPY")
+    assert r["symbol"] == "SPY"
+    assert "net_gex" not in r, "net_gex must NOT be top-level (customer trap)"
+
+    exp = r["exposures"]
+    assert "net_gex" in exp and isinstance(exp["net_gex"], (int, float))
+    # Other exposures on the summary are readable too:
+    for key in ("net_dex", "net_vex", "net_chex"):
+        if key in exp:
+            assert isinstance(exp[key], (int, float)), f"exposures.{key} not numeric"
+
+    # regime is top-level and readable
+    assert "regime" in r
+    assert r["regime"] in ("positive_gamma", "negative_gamma", "neutral")
+
+
+# Issue #2 — Field naming. Customer used put_vrp / call_vrp based on
+# conventions from other APIs. The canonical names are downside_vrp /
+# upside_vrp.
+
+def test_vrp_directional_uses_downside_upside_names(fa):
+    """directional block uses downside_vrp/upside_vrp, not put_vrp/call_vrp."""
+    d = fa.vrp("SPY")["directional"]
+    assert "downside_vrp" in d
+    assert "upside_vrp" in d
+    assert "put_wing_iv_25d" in d
+    assert "call_wing_iv_25d" in d
+    # Silent-null traps — must NOT exist:
+    assert "put_vrp" not in d
+    assert "call_vrp" not in d
+
+
+# Issue #3 — URL pattern mix. Customer guessed /v1/summary/{sym} and
+# got a silent 404. The SDK methods route to the canonical paths.
+
+def test_stock_summary_method_routes_correctly(fa):
+    """fa.stock_summary() returns data (SDK uses /v1/stock/{sym}/summary)
+    and the core fields the customer's daemon enriches signals with.
+    """
+    r = fa.stock_summary("SPY")
+    assert r["symbol"] == "SPY"
+    assert "price" in r
+    # Customer enriches signals with this payload; validate it's non-empty
+    assert isinstance(r, dict) and len(r) > 3
+
+
+def test_stock_quote_method_routes_correctly(fa):
+    """fa.stock_quote() uses bare /stockquote/{t} — no /v1/ prefix."""
+    r = fa.stock_quote("SPY")
+    assert r["ticker"] == "SPY"
+
+
+def test_all_exposure_methods_route_correctly(fa):
+    """Every exposure method on the SDK returns data for SPY."""
+    for method in (fa.gex, fa.dex, fa.vex, fa.chex,
+                   fa.exposure_summary, fa.exposure_levels):
+        assert method("SPY")["symbol"] == "SPY"
+
+
+def test_vrp_method_routes_correctly(fa):
+    """fa.vrp() uses /v1/vrp/{sym} — has /v1/ prefix."""
+    r = fa.vrp("SPY")
+    assert r["symbol"] == "SPY"
+
+
+# Issue #4 — Screener URL. SDK's fa.screener() POSTs to /v1/screener
+# (canonical since v0.3.1). Test hits the live API and validates the
+# full response envelope + row fields.
+
+def test_screener_returns_valid_envelope(fa):
+    """fa.screener() returns a response with meta + data against live API."""
+    r = fa.screener(limit=5)
+    assert "meta" in r and "data" in r
+    meta = r["meta"]
+    for key in ("total_count", "returned_count", "universe_size", "tier", "as_of"):
+        assert key in meta, f"meta.{key} missing"
+    assert meta["returned_count"] <= 5
+    assert meta["tier"] in ("growth", "alpha")
+
+
+def test_screener_full_row_is_readable(fa):
+    """select=['*'] returns flat rows with the documented key fields."""
+    r = fa.screener(select=["*"], limit=1)
+    if not r["data"]:
+        pytest.skip("no rows returned for universe")
+    row = r["data"][0]
+    for key in ("symbol", "price", "regime"):
+        assert key in row, f"row missing {key}"

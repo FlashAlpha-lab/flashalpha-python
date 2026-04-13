@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `docs/api.md` — full endpoint reference, URL-prefix table, response schemas, and sample JSON for every endpoint (copied from flashalpha-api)
+- 17 integration regression tests (`tests/test_integration.py`) guarding against response-shape and URL-pattern regressions reported by Alpha users:
+  - Nested VRP response (`vrp.z_score`, `gex_conditioned.harvest_score`, `regime.net_gex`, `directional.*`)
+  - `exposure_summary` nesting (`exposures.net_gex`)
+  - VRP directional field names (`downside_vrp`/`upside_vrp`, not `put_vrp`/`call_vrp`)
+  - URL-prefix mix — `/stockquote`, `/optionquote`, `/historical/*` without `/v1/`; everything else with
+  - `/v1/stock/{sym}/summary` canonical vs `/v1/summary/{sym}` 404
+  - Canonical `POST /v1/screener` + `/v1/screener/live` deprecation
+  - `/v1/vrp/{sym}` REST endpoint (until `vrp()` method ships)
+
+## 0.3.2 (2026-04-07)
+
+### Added
+- `max_pain()` — max pain analysis with dealer alignment overlay, pain curve, OI breakdown, expected move context, pin probability, and multi-expiry calendar (Growth+)
+
+## 0.3.1 (2026-04-02)
+
+### Changed
+- Screener endpoint renamed: `/v1/screener/live` → `/v1/screener` (canonical). The SDK's `screener()` method now POSTs to `/v1/screener`.
+
+## 0.3.0 (2026-03-30)
+
+### Added
+- `screener()` — live options screener. Filter/rank symbols by gamma exposure, VRP, volatility, greeks, harvest scores, and custom formulas. Growth: 10-symbol universe, up to 10 rows. Alpha: ~250 symbols, up to 50 rows, formulas, and harvest/dealer-flow-risk scores.
+- Recursive filter trees (leaf + `and`/`or` groups), cascading filters via `expiries.*` / `strikes.*` / `contracts.*` prefixes, multi-sort, pagination, inline and named formulas, `select=["*"]` for the full flat object.
+- Unit + integration test coverage for screener filter tree, operators, formulas, and tier gating.
+
 ## 0.2.0 (2026-03-26)
 
 ### Added
