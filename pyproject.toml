@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flashalpha"
-version = "0.3.4"
+version = "0.3.5"
 description = "Python SDK for the FlashAlpha options analytics API — live options screener, gamma exposure (GEX), VRP, delta, vanna, charm, greeks, 0DTE analytics, volatility surfaces, and more."
 readme = "README.md"
 license = "MIT"
@@ -70,6 +70,26 @@ dev = ["pytest>=7.0", "pytest-cov", "responses>=0.23"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/flashalpha"]
+
+[tool.hatch.build.targets.sdist]
+# Explicit allowlist — only ship source, README, LICENSE, pyproject. Anything
+# else in the working dir (e.g. .claude/, CLAUDE.md, .env*, dist/) is excluded.
+include = [
+  "/src/flashalpha",
+  "/tests",
+  "/README.md",
+  "/LICENSE",
+  "/pyproject.toml",
+]
+exclude = [
+  ".claude",
+  "CLAUDE.md",
+  ".env",
+  ".env.*",
+  ".vscode",
+  ".idea",
+  "*.local",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
