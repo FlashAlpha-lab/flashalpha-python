@@ -136,6 +136,135 @@ def test_zero_dte(fa):
         assert "decay" in result
 
 
+def test_zero_dte_new_fields(fa):
+    """Validate the full zero-DTE response shape including the v0.3.4 fields:
+    distance-to-flip in dollars/sigmas, sub-score breakdown for pin_score,
+    fine-grained hedging buckets (10bp/25bp/50bp/100bp + convexity_at_spot),
+    flow concentration (atm/top-3 + net_call_minus_put_volume), wall-strength
+    and level-cluster scores, the new liquidity and metadata sections, and
+    per-strike greeks/quotes/spreads.
+
+    Uses SPX which has daily 0DTE — falls back gracefully on weekends/holidays.
+    """
+    result = fa.zero_dte("SPX")
+    assert result["symbol"] == "SPX"
+
+    if result.get("no_zero_dte"):
+        # Weekend / holiday — response is just a stub, nothing else to verify
+        assert "next_zero_dte_expiry" in result
+        return
+
+    # ── top-level ──────────────────────────────────────────────────────
+    for k in ("underlying_price", "expiration", "as_of", "market_open",
+              "time_to_close_hours", "time_to_close_pct"):
+        assert k in result, f"top-level {k} missing"
+
+    # ── regime ─────────────────────────────────────────────────────────
+    regime = result["regime"]
+    for k in ("label", "description", "gamma_flip", "spot_vs_flip", "spot_to_flip_pct",
+              "distance_to_flip_dollars", "distance_to_flip_sigmas"):
+        assert k in regime, f"regime.{k} missing"
+
+    # ── exposures ──────────────────────────────────────────────────────
+    exposures = result["exposures"]
+    for k in ("net_gex", "net_dex", "net_vex", "net_chex",
+              "pct_of_total_gex", "total_chain_net_gex"):
+        assert k in exposures, f"exposures.{k} missing"
+
+    # ── expected_move ──────────────────────────────────────────────────
+    em = result["expected_move"]
+    for k in ("implied_1sd_dollars", "implied_1sd_pct", "remaining_1sd_dollars",
+              "remaining_1sd_pct", "upper_bound", "lower_bound",
+              "straddle_price", "atm_iv"):
+        assert k in em, f"expected_move.{k} missing"
+
+    # ── pin_risk ───────────────────────────────────────────────────────
+    pr = result["pin_risk"]
+    for k in ("magnet_strike", "magnet_gex", "distance_to_magnet_pct",
+              "pin_score", "components", "max_pain",
+              "oi_concentration_top3_pct", "description"):
+        assert k in pr, f"pin_risk.{k} missing"
+    components = pr["components"]
+    for k in ("oi_score", "proximity_score", "time_score", "gamma_score"):
+        assert k in components, f"pin_risk.components.{k} missing"
+
+    # ── hedging — fine-grained buckets + convexity ─────────────────────
+    hedging = result["hedging"]
+    for bucket in ("spot_up_10bp", "spot_down_10bp",
+                   "spot_up_25bp", "spot_down_25bp",
+                   "spot_up_half_pct", "spot_down_half_pct",
+                   "spot_up_1pct", "spot_down_1pct"):
+        assert bucket in hedging, f"hedging.{bucket} missing"
+        b = hedging[bucket]
+        for k in ("dealer_shares_to_trade", "direction", "notional_usd"):
+            assert k in b, f"hedging.{bucket}.{k} missing"
+    assert "convexity_at_spot" in hedging
+
+    # ── decay ──────────────────────────────────────────────────────────
+    decay = result["decay"]
+    for k in ("net_theta_dollars", "theta_per_hour_remaining", "charm_regime",
+              "charm_description", "gamma_acceleration", "description"):
+        assert k in decay, f"decay.{k} missing"
+
+    # ── vol_context ────────────────────────────────────────────────────
+    vc = result["vol_context"]
+    for k in ("zero_dte_atm_iv", "seven_dte_atm_iv", "iv_ratio_0dte_7dte",
+              "vix", "vanna_exposure", "vanna_interpretation", "description"):
+        assert k in vc, f"vol_context.{k} missing"
+
+    # ── flow ───────────────────────────────────────────────────────────
+    flow = result["flow"]
+    for k in ("total_volume", "call_volume", "put_volume",
+              "net_call_minus_put_volume",
+              "total_oi", "call_oi", "put_oi",
+              "pc_ratio_volume", "pc_ratio_oi", "volume_to_oi_ratio",
+              "atm_volume_share_pct", "top3_strike_volume_pct"):
+        assert k in flow, f"flow.{k} missing"
+
+    # ── levels ─────────────────────────────────────────────────────────
+    levels = result["levels"]
+    for k in ("call_wall", "call_wall_gex", "call_wall_strength",
+              "distance_to_call_wall_pct",
+              "put_wall", "put_wall_gex", "put_wall_strength",
+              "distance_to_put_wall_pct",
+              "distance_to_magnet_dollars",
+              "highest_oi_strike", "highest_oi_total",
+              "max_positive_gamma", "max_negative_gamma",
+              "level_cluster_score"):
+        assert k in levels, f"levels.{k} missing"
+
+    # ── liquidity (new section) ────────────────────────────────────────
+    liquidity = result["liquidity"]
+    for k in ("atm_spread_pct", "weighted_spread_pct", "execution_score"):
+        assert k in liquidity, f"liquidity.{k} missing"
+
+    # ── metadata (new section) ─────────────────────────────────────────
+    metadata = result["metadata"]
+    for k in ("snapshot_age_seconds", "chain_contract_count",
+              "data_quality_score", "greek_smoothness_score"):
+        assert k in metadata, f"metadata.{k} missing"
+
+    # ── per-strike entries ─────────────────────────────────────────────
+    strikes = result["strikes"]
+    assert isinstance(strikes, list)
+    if strikes:
+        s = strikes[0]
+        for k in ("strike", "distance_from_spot_pct",
+                  "call_symbol", "put_symbol",
+                  "call_gex", "put_gex", "net_gex",
+                  "call_dex", "put_dex", "net_dex",
+                  "net_vex", "net_chex",
+                  "call_oi", "put_oi", "call_volume", "put_volume",
+                  "gex_share_pct", "oi_share_pct", "volume_share_pct",
+                  "call_iv", "put_iv",
+                  "call_delta", "put_delta",
+                  "call_gamma", "put_gamma",
+                  "call_theta", "put_theta",
+                  "call_mid", "put_mid",
+                  "call_spread_pct", "put_spread_pct"):
+            assert k in s, f"strikes[0].{k} missing"
+
+
 # ── Pricing ─────────────────────────────────────────────────────────
 
 
