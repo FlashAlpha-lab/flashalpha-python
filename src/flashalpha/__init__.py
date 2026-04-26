@@ -9,8 +9,25 @@ from .exceptions import (
     ServerError,
     TierRestrictedError,
 )
+from .types import (
+    ZeroDteDecay,
+    ZeroDteExpectedMove,
+    ZeroDteExposures,
+    ZeroDteFlow,
+    ZeroDteHedging,
+    ZeroDteHedgingBucket,
+    ZeroDteLevels,
+    ZeroDteLiquidity,
+    ZeroDteMetadata,
+    ZeroDtePinComponents,
+    ZeroDtePinRisk,
+    ZeroDteRegime,
+    ZeroDteResponse,
+    ZeroDteStrike,
+    ZeroDteVolContext,
+)
 
-__version__ = "0.3.2"
+__version__ = "0.3.4"
 __all__ = [
     "FlashAlpha",
     "FlashAlphaError",
@@ -19,4 +36,19 @@ __all__ = [
     "NotFoundError",
     "RateLimitError",
     "ServerError",
+    "ZeroDteResponse",
+    "ZeroDteRegime",
+    "ZeroDteExposures",
+    "ZeroDteExpectedMove",
+    "ZeroDtePinRisk",
+    "ZeroDtePinComponents",
+    "ZeroDteHedging",
+    "ZeroDteHedgingBucket",
+    "ZeroDteDecay",
+    "ZeroDteVolContext",
+    "ZeroDteFlow",
+    "ZeroDteLevels",
+    "ZeroDteLiquidity",
+    "ZeroDteMetadata",
+    "ZeroDteStrike",
 ]

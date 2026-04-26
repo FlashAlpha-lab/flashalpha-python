@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flashalpha"
-version = "0.3.3"
+version = "0.3.4"
 description = "Python SDK for the FlashAlpha options analytics API — live options screener, gamma exposure (GEX), VRP, delta, vanna, charm, greeks, 0DTE analytics, volatility surfaces, and more."
 readme = "README.md"
 license = "MIT"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -14,6 +14,9 @@ from .exceptions import (
     ServerError,
     TierRestrictedError,
 )
+
+if TYPE_CHECKING:
+    from .types import ZeroDteResponse
 
 BASE_URL = "https://lab.flashalpha.com"
 
@@ -192,8 +195,13 @@ class FlashAlpha:
         """Verbal narrative analysis of exposure. Requires Growth+."""
         return self._get(f"/v1/exposure/narrative/{symbol}")
 
-    def zero_dte(self, symbol: str, *, strike_range: float | None = None) -> dict:
-        """Real-time 0DTE analytics: regime, expected move, pin risk, hedging, decay. Requires Growth+."""
+    def zero_dte(self, symbol: str, *, strike_range: float | None = None) -> "ZeroDteResponse":
+        """Real-time 0DTE analytics: regime, expected move, pin risk, hedging, decay. Requires Growth+.
+
+        Returns a ``ZeroDteResponse`` (a ``TypedDict`` — runtime-equivalent to
+        ``dict``). Existing ``result["field"]`` access continues to work; new
+        callers get autocomplete and type-checking on the documented fields.
+        """
         params: dict[str, Any] = {}
         if strike_range is not None:
             params["strike_range"] = strike_range

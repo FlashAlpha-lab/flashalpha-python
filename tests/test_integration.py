@@ -265,6 +265,131 @@ def test_zero_dte_new_fields(fa):
             assert k in s, f"strikes[0].{k} missing"
 
 
+def test_zero_dte_typed_response(fa):
+    """Comprehensive end-to-end test of the typed ``ZeroDteResponse``.
+
+    Mirrors ``test_zero_dte_new_fields`` field-for-field, but reads via the
+    typed paths (``r["regime"]["distance_to_flip_dollars"]`` is fine because
+    ``ZeroDteResponse`` is a ``TypedDict`` — at runtime it's identical to
+    ``dict``). The point is to lock in that every documented field name
+    in the Python type definitions matches what the API actually ships.
+    """
+    from flashalpha.types import ZeroDteResponse
+
+    r: ZeroDteResponse = fa.zero_dte("SPX")
+    assert r["symbol"] == "SPX"
+
+    if r.get("no_zero_dte"):
+        assert "next_zero_dte_expiry" in r
+        return
+
+    # Top-level
+    assert isinstance(r["underlying_price"], (int, float))
+    assert "expiration" in r
+    assert isinstance(r["as_of"], str)
+    assert isinstance(r["market_open"], bool)
+    assert "time_to_close_hours" in r
+    assert "time_to_close_pct" in r
+
+    # regime
+    regime = r["regime"]
+    for k in ("label", "description", "gamma_flip", "spot_vs_flip", "spot_to_flip_pct",
+              "distance_to_flip_dollars", "distance_to_flip_sigmas"):
+        assert k in regime, f"regime.{k} missing in typed access"
+
+    # exposures
+    exposures = r["exposures"]
+    for k in ("net_gex", "net_dex", "net_vex", "net_chex",
+              "pct_of_total_gex", "total_chain_net_gex"):
+        assert k in exposures, f"exposures.{k} missing in typed access"
+
+    # expected_move
+    em = r["expected_move"]
+    for k in ("implied_1sd_dollars", "implied_1sd_pct",
+              "remaining_1sd_dollars", "remaining_1sd_pct",
+              "upper_bound", "lower_bound",
+              "straddle_price", "atm_iv"):
+        assert k in em, f"expected_move.{k} missing in typed access"
+
+    # pin_risk
+    pr = r["pin_risk"]
+    for k in ("magnet_strike", "magnet_gex", "distance_to_magnet_pct",
+              "pin_score", "components", "max_pain",
+              "oi_concentration_top3_pct", "description"):
+        assert k in pr, f"pin_risk.{k} missing in typed access"
+    for k in ("oi_score", "proximity_score", "time_score", "gamma_score"):
+        assert k in pr["components"], f"pin_risk.components.{k} missing"
+
+    # hedging
+    hedging = r["hedging"]
+    for bucket in ("spot_up_10bp", "spot_down_10bp",
+                   "spot_up_25bp", "spot_down_25bp",
+                   "spot_up_half_pct", "spot_down_half_pct",
+                   "spot_up_1pct", "spot_down_1pct"):
+        assert bucket in hedging, f"hedging.{bucket} missing in typed access"
+        for k in ("dealer_shares_to_trade", "direction", "notional_usd"):
+            assert k in hedging[bucket], f"hedging.{bucket}.{k} missing"
+    assert "convexity_at_spot" in hedging
+
+    # decay
+    for k in ("net_theta_dollars", "theta_per_hour_remaining", "charm_regime",
+              "charm_description", "gamma_acceleration", "description"):
+        assert k in r["decay"], f"decay.{k} missing in typed access"
+
+    # vol_context
+    for k in ("zero_dte_atm_iv", "seven_dte_atm_iv", "iv_ratio_0dte_7dte",
+              "vix", "vanna_exposure", "vanna_interpretation", "description"):
+        assert k in r["vol_context"], f"vol_context.{k} missing in typed access"
+
+    # flow
+    for k in ("total_volume", "call_volume", "put_volume",
+              "net_call_minus_put_volume",
+              "total_oi", "call_oi", "put_oi",
+              "pc_ratio_volume", "pc_ratio_oi", "volume_to_oi_ratio",
+              "atm_volume_share_pct", "top3_strike_volume_pct"):
+        assert k in r["flow"], f"flow.{k} missing in typed access"
+
+    # levels
+    for k in ("call_wall", "call_wall_gex", "call_wall_strength",
+              "distance_to_call_wall_pct",
+              "put_wall", "put_wall_gex", "put_wall_strength",
+              "distance_to_put_wall_pct",
+              "distance_to_magnet_dollars",
+              "highest_oi_strike", "highest_oi_total",
+              "max_positive_gamma", "max_negative_gamma",
+              "level_cluster_score"):
+        assert k in r["levels"], f"levels.{k} missing in typed access"
+
+    # liquidity
+    for k in ("atm_spread_pct", "weighted_spread_pct", "execution_score"):
+        assert k in r["liquidity"], f"liquidity.{k} missing in typed access"
+
+    # metadata
+    for k in ("snapshot_age_seconds", "chain_contract_count",
+              "data_quality_score", "greek_smoothness_score"):
+        assert k in r["metadata"], f"metadata.{k} missing in typed access"
+
+    # strikes[0] — every per-strike field
+    strikes = r["strikes"]
+    assert isinstance(strikes, list)
+    if strikes:
+        s = strikes[0]
+        for k in ("strike", "distance_from_spot_pct",
+                  "call_symbol", "put_symbol",
+                  "call_gex", "put_gex", "net_gex",
+                  "call_dex", "put_dex", "net_dex",
+                  "net_vex", "net_chex",
+                  "call_oi", "put_oi", "call_volume", "put_volume",
+                  "gex_share_pct", "oi_share_pct", "volume_share_pct",
+                  "call_iv", "put_iv",
+                  "call_delta", "put_delta",
+                  "call_gamma", "put_gamma",
+                  "call_theta", "put_theta",
+                  "call_mid", "put_mid",
+                  "call_spread_pct", "put_spread_pct"):
+            assert k in s, f"strikes[0].{k} missing in typed access"
+
+
 # ── Pricing ─────────────────────────────────────────────────────────
 
 
