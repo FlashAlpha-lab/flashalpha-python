@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 import requests
 
@@ -19,6 +20,11 @@ if TYPE_CHECKING:
     from .types import ZeroDteResponse
 
 BASE_URL = "https://lab.flashalpha.com"
+
+
+def _seg(s: str) -> str:
+    """URL-escape a single path segment (e.g. a ticker) — escapes / ? % etc."""
+    return quote(s, safe="")
 
 
 class FlashAlpha:
@@ -92,7 +98,7 @@ class FlashAlpha:
 
     def stock_quote(self, ticker: str) -> dict:
         """Live stock quote (bid/ask/mid/last)."""
-        return self._get(f"/stockquote/{ticker}")
+        return self._get(f"/stockquote/{_seg(ticker)}")
 
     def option_quote(
         self,
@@ -110,15 +116,15 @@ class FlashAlpha:
             params["strike"] = strike
         if type:
             params["type"] = type
-        return self._get(f"/optionquote/{ticker}", params or None)
+        return self._get(f"/optionquote/{_seg(ticker)}", params or None)
 
     def surface(self, symbol: str) -> dict:
         """Volatility surface grid (public, no auth required)."""
-        return self._get(f"/v1/surface/{symbol}")
+        return self._get(f"/v1/surface/{_seg(symbol)}")
 
     def stock_summary(self, symbol: str) -> dict:
         """Comprehensive stock summary (price, vol, exposure, macro)."""
-        return self._get(f"/v1/stock/{symbol}/summary")
+        return self._get(f"/v1/stock/{_seg(symbol)}/summary")
 
     # ── Historical ──────────────────────────────────────────────────
 
@@ -127,7 +133,7 @@ class FlashAlpha:
         params: dict[str, Any] = {"date": date}
         if time:
             params["time"] = time
-        return self._get(f"/historical/stockquote/{ticker}", params)
+        return self._get(f"/historical/stockquote/{_seg(ticker)}", params)
 
     def historical_option_quote(
         self,
@@ -149,7 +155,7 @@ class FlashAlpha:
             params["strike"] = strike
         if type:
             params["type"] = type
-        return self._get(f"/historical/optionquote/{ticker}", params)
+        return self._get(f"/historical/optionquote/{_seg(ticker)}", params)
 
     # ── Exposure Analytics ──────────────────────────────────────────
 
@@ -160,40 +166,40 @@ class FlashAlpha:
             params["expiration"] = expiration
         if min_oi is not None:
             params["min_oi"] = min_oi
-        return self._get(f"/v1/exposure/gex/{symbol}", params or None)
+        return self._get(f"/v1/exposure/gex/{_seg(symbol)}", params or None)
 
     def dex(self, symbol: str, *, expiration: str | None = None) -> dict:
         """Delta exposure by strike."""
         params: dict[str, Any] = {}
         if expiration:
             params["expiration"] = expiration
-        return self._get(f"/v1/exposure/dex/{symbol}", params or None)
+        return self._get(f"/v1/exposure/dex/{_seg(symbol)}", params or None)
 
     def vex(self, symbol: str, *, expiration: str | None = None) -> dict:
         """Vanna exposure by strike."""
         params: dict[str, Any] = {}
         if expiration:
             params["expiration"] = expiration
-        return self._get(f"/v1/exposure/vex/{symbol}", params or None)
+        return self._get(f"/v1/exposure/vex/{_seg(symbol)}", params or None)
 
     def chex(self, symbol: str, *, expiration: str | None = None) -> dict:
         """Charm exposure by strike."""
         params: dict[str, Any] = {}
         if expiration:
             params["expiration"] = expiration
-        return self._get(f"/v1/exposure/chex/{symbol}", params or None)
+        return self._get(f"/v1/exposure/chex/{_seg(symbol)}", params or None)
 
     def exposure_summary(self, symbol: str) -> dict:
         """Full exposure summary (GEX/DEX/VEX/CHEX + hedging). Requires Growth+."""
-        return self._get(f"/v1/exposure/summary/{symbol}")
+        return self._get(f"/v1/exposure/summary/{_seg(symbol)}")
 
     def exposure_levels(self, symbol: str) -> dict:
         """Key support/resistance levels from options exposure."""
-        return self._get(f"/v1/exposure/levels/{symbol}")
+        return self._get(f"/v1/exposure/levels/{_seg(symbol)}")
 
     def narrative(self, symbol: str) -> dict:
         """Verbal narrative analysis of exposure. Requires Growth+."""
-        return self._get(f"/v1/exposure/narrative/{symbol}")
+        return self._get(f"/v1/exposure/narrative/{_seg(symbol)}")
 
     def zero_dte(self, symbol: str, *, strike_range: float | None = None) -> "ZeroDteResponse":
         """Real-time 0DTE analytics: regime, expected move, pin risk, hedging, decay. Requires Growth+.
@@ -205,14 +211,14 @@ class FlashAlpha:
         params: dict[str, Any] = {}
         if strike_range is not None:
             params["strike_range"] = strike_range
-        return self._get(f"/v1/exposure/zero-dte/{symbol}", params or None)
+        return self._get(f"/v1/exposure/zero-dte/{_seg(symbol)}", params or None)
 
     def exposure_history(self, symbol: str, *, days: int | None = None) -> dict:
         """Daily exposure snapshots for trend analysis. Requires Growth+."""
         params: dict[str, Any] = {}
         if days is not None:
             params["days"] = days
-        return self._get(f"/v1/exposure/history/{symbol}", params or None)
+        return self._get(f"/v1/exposure/history/{_seg(symbol)}", params or None)
 
     # ── Pricing & Sizing ────────────────────────────────────────────
 
@@ -287,11 +293,11 @@ class FlashAlpha:
 
     def volatility(self, symbol: str) -> dict:
         """Comprehensive volatility analysis. Requires Growth+."""
-        return self._get(f"/v1/volatility/{symbol}")
+        return self._get(f"/v1/volatility/{_seg(symbol)}")
 
     def adv_volatility(self, symbol: str) -> dict:
         """Advanced volatility analytics: SVI parameters, variance surface, arbitrage detection, greeks surfaces, variance swap. Requires Alpha+."""
-        return self._get(f"/v1/adv_volatility/{symbol}")
+        return self._get(f"/v1/adv_volatility/{_seg(symbol)}")
 
     # ── Reference Data ──────────────────────────────────────────────
 
@@ -301,7 +307,7 @@ class FlashAlpha:
 
     def options(self, ticker: str) -> dict:
         """Option chain metadata (expirations + strikes)."""
-        return self._get(f"/v1/options/{ticker}")
+        return self._get(f"/v1/options/{_seg(ticker)}")
 
     def symbols(self) -> dict:
         """Currently queried symbols with live data."""
@@ -332,7 +338,7 @@ class FlashAlpha:
 
         Requires Alpha+.
         """
-        return self._get(f"/v1/vrp/{symbol}")
+        return self._get(f"/v1/vrp/{_seg(symbol)}")
 
     # ── Max Pain ────────────────────────────────────────────────────
 
@@ -351,7 +357,7 @@ class FlashAlpha:
         params: dict[str, Any] = {}
         if expiration:
             params["expiration"] = expiration
-        return self._get(f"/v1/maxpain/{symbol}", params or None)
+        return self._get(f"/v1/maxpain/{_seg(symbol)}", params or None)
 
     # ── Screener ────────────────────────────────────────────────────
 

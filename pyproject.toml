@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flashalpha"
-version = "0.3.5"
+version = "0.3.6"
 description = "Python SDK for the FlashAlpha options analytics API — live options screener, gamma exposure (GEX), VRP, delta, vanna, charm, greeks, 0DTE analytics, volatility surfaces, and more."
 readme = "README.md"
 license = "MIT"
@@ -73,10 +73,11 @@ packages = ["src/flashalpha"]
 
 [tool.hatch.build.targets.sdist]
 # Explicit allowlist — only ship source, README, LICENSE, pyproject. Anything
-# else in the working dir (e.g. .claude/, CLAUDE.md, .env*, dist/) is excluded.
+# else in the working dir (e.g. .claude/, CLAUDE.md, .env*, dist/, tests/)
+# is excluded so the sdist stays minimal.
+support-legacy = false
 include = [
   "/src/flashalpha",
-  "/tests",
   "/README.md",
   "/LICENSE",
   "/pyproject.toml",
@@ -86,6 +87,8 @@ exclude = [
   "CLAUDE.md",
   ".env",
   ".env.*",
+  ".gitignore",
+  "**/.gitignore",
   ".vscode",
   ".idea",
   "*.local",
