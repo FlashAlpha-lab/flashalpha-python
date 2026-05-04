@@ -211,3 +211,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Sandbox / agent / harness caches (cross-ecosystem — defensive)
+.dotnet/
+.gocache/
+.gopath/
+.m2/
+.review-artifacts/
+.agent-tools/

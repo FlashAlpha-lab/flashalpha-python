@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Added
-- `docs/api.md` — full endpoint reference, URL-prefix table, response schemas, and sample JSON for every endpoint (copied from flashalpha-api)
+- `docs/api.md` — full endpoint reference, URL-prefix table, response schemas, and sample JSON for every endpoint
 - 17 integration regression tests (`tests/test_integration.py`) guarding against response-shape and URL-pattern regressions reported by Alpha users:
   - Nested VRP response (`vrp.z_score`, `gex_conditioned.harvest_score`, `regime.net_gex`, `directional.*`)
   - `exposure_summary` nesting (`exposures.net_gex`)
