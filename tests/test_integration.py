@@ -718,6 +718,92 @@ def test_vrp_returns_full_payload(fa):
         assert "vix" in r["macro"]
 
 
+def test_vrp_every_field_declared_in_poco_must_be_referenced(fa):
+    """Every leaf field declared in VrpResponse must be referenced.
+
+    100% field-coverage discipline (mirrors the ExposureSummary contract).
+    Live-specific:
+        - macro.fed_funds is present (live-only field).
+        - macro.hy_spread may currently be null (data-pipeline gap).
+    """
+    r = fa.vrp("SPY")
+
+    # ── top-level scalars ──
+    assert r["symbol"] == "SPY"
+    assert isinstance(r["underlying_price"], (int, float)) and r["underlying_price"] > 0
+    assert isinstance(r["as_of"], str) and r["as_of"]
+    assert isinstance(r["market_open"], bool)
+    assert isinstance(r["variance_risk_premium"], (int, float))
+    assert isinstance(r["convexity_premium"], (int, float))
+    assert isinstance(r["fair_vol"], (int, float))
+    assert isinstance(r["dealer_flow_risk"], (int, float))
+    assert isinstance(r["net_harvest_score"], (int, float))
+    assert isinstance(r["warnings"], list)
+    # Customer traps: these MUST NOT be top-level
+    assert "z_score" not in r
+    assert "percentile" not in r
+    assert "atm_iv" not in r
+    assert "net_gex" not in r
+    assert "put_vrp" not in r and "call_vrp" not in r
+    assert "harvest_score" not in r  # under gex_conditioned
+
+    # ── vrp.* core block ──
+    core = r["vrp"]
+    for k in ("atm_iv", "rv_5d", "rv_10d", "rv_20d", "rv_30d",
+              "vrp_5d", "vrp_10d", "vrp_20d", "vrp_30d"):
+        assert isinstance(core[k], (int, float)), f"vrp.{k}"
+    assert isinstance(core["z_score"], (int, float))
+    assert isinstance(core["percentile"], int) and 0 <= core["percentile"] <= 100
+    assert isinstance(core["history_days"], int)
+
+    # ── directional ──
+    d = r["directional"]
+    for k in ("put_wing_iv_25d", "call_wing_iv_25d",
+              "downside_rv_20d", "upside_rv_20d",
+              "downside_vrp", "upside_vrp"):
+        assert isinstance(d[k], (int, float)), f"directional.{k}"
+
+    # ── term_vrp[] ──
+    term = r["term_vrp"]
+    assert isinstance(term, list) and len(term) > 0
+    first = term[0]
+    assert isinstance(first["dte"], int)
+    for k in ("iv", "rv", "vrp"):
+        assert isinstance(first[k], (int, float)), f"term_vrp[0].{k}"
+
+    # ── gex_conditioned ──
+    gex_c = r["gex_conditioned"]
+    assert isinstance(gex_c["regime"], str)
+    assert isinstance(gex_c["harvest_score"], (int, float))
+    assert isinstance(gex_c["interpretation"], str)
+
+    # ── vanna_conditioned ──
+    vanna_c = r["vanna_conditioned"]
+    assert isinstance(vanna_c["outlook"], str)
+    assert isinstance(vanna_c["interpretation"], str)
+
+    # ── regime (net_gex lives HERE) ──
+    reg = r["regime"]
+    assert isinstance(reg["gamma"], str)
+    assert isinstance(reg["vrp_regime"], str)
+    assert isinstance(reg["net_gex"], (int, float))
+    assert isinstance(reg["gamma_flip"], (int, float))
+
+    # ── strategy_scores ──
+    ss = r["strategy_scores"]
+    for k in ("short_put_spread", "short_strangle", "iron_condor", "calendar_spread"):
+        assert isinstance(ss[k], int) and 0 <= ss[k] <= 100, f"strategy_scores.{k}"
+
+    # ── macro (live-specific includes fed_funds) ──
+    m = r["macro"]
+    for k in ("vix", "vix_3m", "vix_term_slope", "dgs10"):
+        assert isinstance(m[k], (int, float)), f"macro.{k}"
+    # hy_spread present but may be null on live currently
+    assert "hy_spread" in m and (m["hy_spread"] is None or isinstance(m["hy_spread"], (int, float)))
+    # fed_funds is the live-only macro field
+    assert "fed_funds" in m and isinstance(m["fed_funds"], (int, float))
+
+
 # Issue #1 — Nested response structures. Customer accessed
 # response["z_score"] directly and got None. The field lives at
 # response["vrp"]["z_score"]. Tests assert the documented nesting.
