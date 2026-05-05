@@ -113,10 +113,40 @@ def test_exposure_levels(fa):
 
 
 def test_exposure_summary(fa):
+    """Every field declared in ExposureSummaryResponse must be referenced."""
     result = fa.exposure_summary("SPY")
+    # ── top-level scalars ──
     assert result["symbol"] == "SPY"
-    assert "exposures" in result
-    assert "regime" in result
+    assert "underlying_price" in result and isinstance(result["underlying_price"], (int, float))
+    assert isinstance(result["as_of"], str) and result["as_of"]
+    assert isinstance(result["gamma_flip"], (int, float))
+    assert result["regime"] in ("positive_gamma", "negative_gamma", "neutral", "undetermined")
+    # ── exposures block (4 fields) ──
+    e = result["exposures"]
+    for k in ("net_gex", "net_dex", "net_vex", "net_chex"):
+        assert isinstance(e[k], (int, float)), f"exposures.{k}"
+    # ── interpretation block (3 fields) ──
+    interp = result["interpretation"]
+    for k in ("gamma", "vanna", "charm"):
+        assert isinstance(interp[k], str) and interp[k], f"interpretation.{k}"
+    # ── hedging_estimate (every leaf field on both sides) ──
+    h = result["hedging_estimate"]
+    up, down = h["spot_up_1pct"], h["spot_down_1pct"]
+    for side in (up, down):
+        # Both summary + zero-dte return lowercase.
+        assert side["direction"] in ("buy", "sell")
+        assert isinstance(side["dealer_shares_to_trade"], (int, float))
+        assert isinstance(side["notional_usd"], (int, float))
+        assert side["notional_usd"] != 0
+    assert up["dealer_shares_to_trade"] == -down["dealer_shares_to_trade"]
+    # ── zero_dte block (3 fields) ──
+    z = result["zero_dte"]
+    assert isinstance(z, dict)
+    assert "net_gex" in z and (z["net_gex"] is None or isinstance(z["net_gex"], (int, float)))
+    assert "pct_of_total_gex" in z and (
+        z["pct_of_total_gex"] is None or isinstance(z["pct_of_total_gex"], (int, float))
+    )
+    assert "expiration" in z and (z["expiration"] is None or isinstance(z["expiration"], str))
 
 
 def test_narrative(fa):

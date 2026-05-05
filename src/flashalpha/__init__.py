@@ -10,6 +10,12 @@ from .exceptions import (
     TierRestrictedError,
 )
 from .types import (
+    ExposureSummaryExposures,
+    ExposureSummaryHedgingEstimate,
+    ExposureSummaryHedgingMove,
+    ExposureSummaryInterpretation,
+    ExposureSummaryResponse,
+    ExposureSummaryZeroDte,
     ZeroDteDecay,
     ZeroDteExpectedMove,
     ZeroDteExposures,
@@ -27,7 +33,7 @@ from .types import (
     ZeroDteVolContext,
 )
 
-__version__ = "0.3.7"
+__version__ = "0.4.0rc1"
 __all__ = [
     "FlashAlpha",
     "FlashAlphaError",
@@ -51,4 +57,11 @@ __all__ = [
     "ZeroDteLiquidity",
     "ZeroDteMetadata",
     "ZeroDteStrike",
+    # ── ExposureSummary ──
+    "ExposureSummaryResponse",
+    "ExposureSummaryExposures",
+    "ExposureSummaryInterpretation",
+    "ExposureSummaryHedgingEstimate",
+    "ExposureSummaryHedgingMove",
+    "ExposureSummaryZeroDte",
 ]
