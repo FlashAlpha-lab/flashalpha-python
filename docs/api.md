@@ -654,12 +654,12 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
   "hedging_estimate": {
     "spot_down_1pct": {
       "dealer_shares_to_trade": 4780000,
-      "direction": "BUY",
+      "direction": "buy",
       "notional_usd": 2852000000
     },
     "spot_up_1pct": {
       "dealer_shares_to_trade": -4780000,
-      "direction": "SELL",
+      "direction": "sell",
       "notional_usd": 2852000000
     }
   },
@@ -675,9 +675,27 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
 
 | Field | Description |
 |-------|-------------|
-| `regime` | `positive_gamma`, `negative_gamma`, or `undetermined` |
-| `hedging_estimate` | Estimated dealer hedging flow if spot moves +/-1% |
-| `zero_dte` | Same-day expiration contribution to total GEX |
+| `symbol` | Requested underlying symbol |
+| `underlying_price` | Spot price used for the exposure calculation |
+| `as_of` | UTC timestamp of the exposure snapshot |
+| `gamma_flip` | Strike where net GEX crosses zero |
+| `regime` | `positive_gamma`, `negative_gamma`, `neutral`, or `undetermined` |
+| `exposures.net_gex` | Net gamma exposure in USD notional |
+| `exposures.net_dex` | Net delta exposure in USD notional |
+| `exposures.net_vex` | Net vanna exposure in USD notional |
+| `exposures.net_chex` | Net charm exposure in USD notional |
+| `interpretation.gamma` | Gamma-regime interpretation |
+| `interpretation.vanna` | Vanna-flow interpretation |
+| `interpretation.charm` | Charm/time-decay interpretation |
+| `hedging_estimate.spot_down_1pct.dealer_shares_to_trade` | Estimated shares dealers need to trade after a -1% spot move |
+| `hedging_estimate.spot_down_1pct.direction` | Lowercase `buy` or `sell` |
+| `hedging_estimate.spot_down_1pct.notional_usd` | Estimated USD notional of the hedge |
+| `hedging_estimate.spot_up_1pct.dealer_shares_to_trade` | Estimated shares dealers need to trade after a +1% spot move |
+| `hedging_estimate.spot_up_1pct.direction` | Lowercase `buy` or `sell` |
+| `hedging_estimate.spot_up_1pct.notional_usd` | Estimated USD notional of the hedge |
+| `zero_dte.net_gex` | Same-day expiration net GEX contribution |
+| `zero_dte.pct_of_total_gex` | Same-day expiration GEX as a percentage of total GEX |
+| `zero_dte.expiration` | Same-day expiration date, or `null` when unavailable |
 
 ---
 

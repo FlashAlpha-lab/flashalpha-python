@@ -709,3 +709,193 @@ class VrpResponse(TypedDict, total=False):
     warnings: List[str]
     # Macro context. See ``VrpMacro``.
     macro: VrpMacro
+
+
+# ─── MaxPain ─────────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/maxpain/{symbol}`` (Basic+).
+#
+# Max pain is the strike where total option-holder intrinsic value across all
+# OI in the chain is minimized — equivalently, the strike at which dealers
+# (the counterparty) lose the least to expiring contracts. The endpoint also
+# overlays GEX-based dealer alignment, a multi-expiry calendar (full chain
+# only), and a 0-100 pin probability score.
+
+
+class MaxPainDistance(TypedDict, total=False):
+    """Distance from spot to the max-pain strike."""
+
+    # Dollar distance: ``|underlying_price - max_pain_strike|``.
+    absolute: Optional[float]
+    # Percent of spot: ``absolute / underlying_price * 100``. Use this to
+    # compare across symbols of different price levels.
+    percent: Optional[float]
+    # ``"above"`` (spot > max_pain), ``"below"`` (spot < max_pain), or
+    # ``"at"`` (within rounding). The signal field uses this + a 5%
+    # threshold to derive the bullish/bearish/neutral classification.
+    direction: Optional[Literal["above", "below", "at"]]
+
+
+class MaxPainCurveRow(TypedDict, total=False):
+    """One row of the strike-by-strike pain curve.
+
+    Each row is the dollar pain (intrinsic value × OI × 100 contract
+    multiplier) summed across all expirations at that strike. The strike
+    where ``total_pain`` is minimized is the max-pain strike.
+    """
+
+    strike: Optional[float]
+    # Dollar intrinsic value of all calls at this strike summed across the
+    # chain (when spot pins here, this is what call holders collectively win
+    # vs the dealer side).
+    call_pain: Optional[float]
+    # Dollar intrinsic value of all puts at this strike. Mirror of
+    # ``call_pain`` for the put side.
+    put_pain: Optional[float]
+    # ``call_pain + put_pain``. The pain curve's minimum identifies max pain.
+    total_pain: Optional[float]
+
+
+class MaxPainOiRow(TypedDict, total=False):
+    """One row of the OI-by-strike breakdown.
+
+    Per-strike open interest and volume by side. Lets you see where the
+    OI is concentrated independent of the dollar-weighted pain calculation.
+
+    Note: on the Historical API, ``call_volume`` and ``put_volume`` are
+    always ``0`` (placeholder fields — the minute table doesn't carry
+    intraday volume).
+    """
+
+    strike: Optional[float]
+    call_oi: Optional[int]
+    put_oi: Optional[int]
+    total_oi: Optional[int]
+    call_volume: Optional[int]
+    put_volume: Optional[int]
+
+
+class MaxPainByExpirationRow(TypedDict, total=False):
+    """Per-expiry max-pain breakdown when no ``expiration`` filter is applied.
+
+    Lets you see how max pain shifts across the term structure — useful for
+    spotting cases where the front-week max pain differs sharply from the
+    LEAP max pain (often a sign of where the dealer flow is most active).
+
+    This list is ``None`` when the request specifies an ``expiration``
+    filter — the response is then scoped to that single expiry and the
+    multi-expiry view is suppressed.
+    """
+
+    # ``"yyyy-MM-dd"`` of this expiry.
+    expiration: Optional[str]
+    # Max-pain strike for this expiry's option chain alone.
+    max_pain_strike: Optional[float]
+    # Days to expiry (counting from ``as_of``).
+    dte: Optional[int]
+    # Sum of OI across all contracts at this expiry.
+    total_oi: Optional[int]
+
+
+class MaxPainDealerAlignment(TypedDict, total=False):
+    """GEX-based dealer-alignment overlay on the max-pain view.
+
+    Re-uses the same gamma-exposure inputs as ``/v1/exposure/levels`` and
+    ``/v1/exposure/summary``. The headline ``alignment`` label tells you
+    whether dealer hedging will REINFORCE the max-pain pin or fight it:
+
+        - ``"converging"``: max pain near gamma flip and between the
+          walls — dealer hedging supports the pin (strongest pin setup).
+        - ``"moderate"``: max pain between the walls but far from flip.
+        - ``"diverging"``: max pain outside the wall range — dealer
+          hedging actively pushes spot away from max pain.
+        - ``"unknown"``: insufficient data to classify.
+    """
+
+    alignment: Optional[Literal["converging", "moderate", "diverging", "unknown"]]
+    # Plain-English explanation. Safe to surface verbatim.
+    description: Optional[str]
+    # Strike where net dealer gamma crosses zero. Same definition as
+    # ``exposure_summary.gamma_flip``.
+    gamma_flip: Optional[float]
+    # Strike with highest absolute call GEX (dealer-side resistance).
+    call_wall: Optional[float]
+    # Strike with highest absolute put GEX (dealer-side support).
+    put_wall: Optional[float]
+
+
+class MaxPainExpectedMove(TypedDict, total=False):
+    """Implied move from the ATM straddle, contextualized vs max pain.
+
+    Tells you whether the max-pain strike is even reachable within the
+    options-implied 1σ move. If ``max_pain_within_expected_range`` is
+    ``False``, the pin is unlikely to play out by expiry under the current
+    IV regime — the magnet exists but spot probably can't get there.
+    """
+
+    # ATM straddle mid in dollars. Rough proxy for the 1σ implied move.
+    straddle_price: Optional[float]
+    # ATM implied volatility (annualised %, e.g. 18.5 = 18.5%).
+    atm_iv: Optional[float]
+    # ``True`` when ``|spot - max_pain_strike| <= straddle_price``.
+    max_pain_within_expected_range: Optional[bool]
+
+
+class MaxPainResponse(TypedDict, total=False):
+    """Max pain dashboard from ``GET /v1/maxpain/{symbol}``.
+
+    Returns the strike where total option-holder pain (intrinsic value × OI)
+    is minimized, plus:
+
+        - per-strike pain curve and OI breakdown
+        - per-expiry calendar (when no ``expiration`` filter is set)
+        - GEX-based dealer alignment overlay (call wall / put wall /
+          gamma flip — same numbers as ``/v1/exposure/levels``)
+        - expected move from the ATM straddle
+        - 0-100 pin probability composite
+
+    The endpoint accepts an optional ``expiration`` query filter
+    (``yyyy-MM-dd``). When present, the response is scoped to that single
+    expiry and ``max_pain_by_expiration`` is ``None``. When absent, the
+    full-chain max pain is returned alongside the multi-expiry calendar.
+
+    Returns 403 ``tier_restricted`` for Free-tier users; requires Basic+.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    # The headline number. Strike where total chain pain is minimized.
+    max_pain_strike: Optional[float]
+    # Distance from spot to ``max_pain_strike`` (absolute, percent, direction).
+    distance: MaxPainDistance
+    # ``"bullish"`` (spot >= 5% below max_pain — pin attracts upside),
+    # ``"bearish"`` (>= 5% above), or ``"neutral"`` (within 5%).
+    signal: Optional[Literal["bullish", "bearish", "neutral"]]
+    # Expiration this view is scoped to. When the request omits the
+    # ``expiration`` filter, this field is the front-month expiry the
+    # full-chain max pain happened to land on.
+    expiration: Optional[str]
+    # Total put OI / total call OI across the relevant chain. >1.0 means
+    # put-heavy positioning. Often correlates with ``signal == "bullish"``
+    # (puts are protection; heavy-put chains often have spot below max pain).
+    put_call_oi_ratio: Optional[float]
+    # Strike-by-strike pain curve. The minimum is at ``max_pain_strike``.
+    pain_curve: List[MaxPainCurveRow]
+    # Per-strike OI + volume breakdown. Same strike grid as ``pain_curve``.
+    oi_by_strike: List[MaxPainOiRow]
+    # Per-expiry calendar. ``None`` when the request specified an expiry.
+    max_pain_by_expiration: Optional[List[MaxPainByExpirationRow]]
+    # GEX-based dealer alignment overlay. See ``MaxPainDealerAlignment``.
+    dealer_alignment: MaxPainDealerAlignment
+    # Same gamma classification as on ``exposure_summary``:
+    # positive_gamma | negative_gamma | neutral | undetermined.
+    regime: Optional[Literal["positive_gamma", "negative_gamma",
+                              "neutral", "undetermined"]]
+    # Expected move from the ATM straddle, contextualized vs max pain.
+    expected_move: MaxPainExpectedMove
+    # 0-100 composite — likelihood of pinning to ``max_pain_strike``.
+    # Inputs: OI concentration (30%), magnet proximity (25%), time
+    # remaining (25%), gamma magnitude (20%). Most meaningful for near-term
+    # expiries — for LEAPs this score will be low regardless of OI shape.
+    pin_probability: Optional[int]
