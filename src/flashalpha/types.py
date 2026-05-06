@@ -386,12 +386,11 @@ class ExposureSummaryResponse(TypedDict, total=False):
     # Dealer-positioning regime classification:
     #   - ``"positive_gamma"``: spot above gamma_flip
     #   - ``"negative_gamma"``: spot below gamma_flip
-    #   - ``"neutral"``: spot within ~1% of flip and net_gex straddles zero
-    #   - ``"undetermined"``: insufficient options data to compute a flip
+    #   - ``"unknown"``: insufficient options data to compute a flip
     # Confirmed live values across Py/JS/.NET/Go/Java integration tests.
     # Don't conflate with ``maxpain.signal`` (a separate
     # bullish/bearish/neutral classifier on a different endpoint).
-    regime: Literal["positive_gamma", "negative_gamma", "neutral", "undetermined"]
+    regime: Literal["positive_gamma", "negative_gamma", "unknown"]
     # Net Greek totals across the entire chain. See ``ExposureSummaryExposures``.
     exposures: ExposureSummaryExposures
     # Plain-English narrative for each Greek regime — safe to surface to
@@ -559,8 +558,8 @@ class VrpRegime(TypedDict, total=False):
     ``response["regime"]["net_gex"]``.
     """
 
-    # ``"positive_gamma"`` | ``"negative_gamma"`` | ``"neutral"`` |
-    # ``"undetermined"`` — same classifier as exposure_summary.
+    # ``"positive_gamma"`` | ``"negative_gamma"`` | ``"unknown"`` —
+    # same classifier as exposure_summary.
     gamma: Optional[str]
     # ``"harvestable"`` | ``"selling_too_cheap"`` | ``"buying_too_cheap"``
     # | ``"neutral"`` etc. — describes the VRP environment in trading
@@ -889,9 +888,8 @@ class MaxPainResponse(TypedDict, total=False):
     # GEX-based dealer alignment overlay. See ``MaxPainDealerAlignment``.
     dealer_alignment: MaxPainDealerAlignment
     # Same gamma classification as on ``exposure_summary``:
-    # positive_gamma | negative_gamma | neutral | undetermined.
-    regime: Optional[Literal["positive_gamma", "negative_gamma",
-                              "neutral", "undetermined"]]
+    # positive_gamma | negative_gamma | unknown.
+    regime: Optional[Literal["positive_gamma", "negative_gamma", "unknown"]]
     # Expected move from the ATM straddle, contextualized vs max pain.
     expected_move: MaxPainExpectedMove
     # 0-100 composite — likelihood of pinning to ``max_pain_strike``.
@@ -1158,8 +1156,8 @@ class StockSummaryExposure(TypedDict, total=False):
     # Dealer-positioning regime classification:
     #   - ``"positive_gamma"``: spot above gamma_flip (mean-reverting)
     #   - ``"negative_gamma"``: spot below gamma_flip (trend-following)
-    #   - ``"undetermined"``: insufficient options data to compute
-    regime: Optional[Literal["positive_gamma", "negative_gamma", "undetermined"]]
+    #   - ``"unknown"``: insufficient options data to compute
+    regime: Optional[Literal["positive_gamma", "negative_gamma", "unknown"]]
     # Plain-English narrative for each Greek regime. Safe to surface
     # verbatim. See ``StockSummaryInterpretation``.
     interpretation: StockSummaryInterpretation
