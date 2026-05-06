@@ -1,0 +1,109 @@
+# FlashAlpha — Python SDK
+
+> FlashAlpha is an institutional-grade options analytics API: dealer
+> positioning (GEX/DEX/VEX/CHEX), gamma flip, call/put walls, max pain,
+> 0DTE attribution, variance risk premium, IV term structure, and
+> macro context — all on one round-trip per endpoint.
+
+This is the live (current-minute) Python SDK. For point-in-time replay
+of every analytics endpoint going back to 2018, see the companion
+`flashalpha-historical` package.
+
+## Install
+
+```bash
+pip install flashalpha
+```
+
+## Quickstart
+
+```python
+from flashalpha import FlashAlpha
+
+client = FlashAlpha(api_key="YOUR_API_KEY")
+
+# Single-call dashboard — price, IV, HV, VRP, skew, term structure,
+# full dealer exposure, macro context.
+summary = client.stock_summary("SPY")
+
+# Net dealer Greeks + gamma flip + ±1% hedging estimate.
+exp = client.exposure_summary("SPY")
+
+# Same-day-expiry deep dive (±10bp / ±25bp / ±50bp / ±1% buckets,
+# pin risk, time-to-close decay).
+zdte = client.zero_dte("SPY")
+
+# Variance Risk Premium dashboard (Alpha+).
+vrp = client.vrp("SPY")
+
+# Max pain dashboard (Basic+).
+mp = client.maxpain("SPY")
+
+# Dealer-flow levels — gamma flip, walls, 0DTE magnet.
+levels = client.exposure_levels("SPY")
+
+# LLM-friendly verbal output (Growth+).
+narrative = client.exposure_narrative("SPY")
+```
+
+## Key endpoints
+
+- `GET /v1/stock/{symbol}/summary` — single best snapshot. Price, IV,
+  HV, VRP, 25-delta skew, IV term structure, options flow aggregates,
+  full dealer exposure (Greeks, walls, gamma flip, max pain, hedging
+  estimate, 0DTE attribution, top strikes), and macro context (VIX,
+  VVIX, SKEW, SPX, MOVE, term structure, fear/greed). Dual-mode auth:
+  authenticated = live; unauthenticated = previous-day cached snapshot.
+- `GET /v1/exposure/summary/{symbol}` — net dealer Greeks
+  (gamma/delta/vanna/charm), gamma flip, ±1% hedging estimate,
+  verbal regime narratives, 0DTE attribution.
+- `GET /v1/exposure/zero-dte/{symbol}` — same-day-expiry deep dive:
+  ±10bp / ±25bp / ±50bp / ±1% hedging buckets, pin-risk scoring,
+  time-to-close decay, vol context, full strike grid.
+- `GET /v1/exposure/levels/{symbol}` — pared-down headline strikes:
+  gamma flip, max ±gamma, call wall, put wall, highest OI, 0DTE magnet.
+- `GET /v1/exposure/narrative/{symbol}` — LLM-friendly verbal output:
+  plain-English narrative strings safe to surface verbatim, paired
+  with the numeric data block that backs them. (Growth+)
+- `GET /v1/vrp/{symbol}` — Variance Risk Premium dashboard: core IV
+  vs RV ladders, directional skew (downside vs upside), term VRP,
+  GEX-conditioned harvest score, vanna-conditioned outlook, regime
+  classification, strategy suitability scores. (Alpha+)
+- `GET /v1/maxpain/{symbol}` — strike where total option-holder pain
+  is minimized; per-strike pain curve, OI breakdown, per-expiry
+  calendar, GEX-based dealer alignment, expected move, pin
+  probability. (Basic+)
+- `GET /v1/pricing/greeks` — stateless Black-Scholes-Merton pricer:
+  theoretical price plus first/second/third-order Greeks
+  (delta, gamma, theta, vega, rho, vanna, charm, vomma, dual delta,
+  speed, zomma, color, ultima, lambda, veta).
+
+## Typed responses
+
+Every endpoint listed above has a corresponding `TypedDict` model in
+`flashalpha.types`. At runtime each response is a plain `dict`, so
+existing `result["field"]` code keeps working — type checkers and IDEs
+just see the field shape and provide autocomplete.
+
+```python
+from flashalpha import StockSummaryResponse, ExposureSummaryResponse
+
+summary: StockSummaryResponse = client.stock_summary("SPY")
+gamma_flip = summary["exposure"]["gamma_flip"]  # autocompleted
+```
+
+## Tier breakdown
+
+- **Free**: dual-mode preview tier — `stock_summary` returns a
+  previous-day cached snapshot without an API key.
+- **Basic**: live `exposure_summary`, `exposure_levels`, `zero_dte`,
+  `maxpain`, `pricing/greeks`.
+- **Alpha**: adds `vrp` and full historical replay of the above.
+- **Growth**: adds `exposure_narrative` and higher rate limits.
+- **Pro / Enterprise**: bespoke; contact sales.
+
+## Links
+
+- Playground (interactive Swagger): https://lab.flashalpha.com/swagger
+- Sign up: https://flashalpha.com
+- GitHub: https://github.com/flashalpha
