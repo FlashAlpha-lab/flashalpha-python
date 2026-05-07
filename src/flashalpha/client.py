@@ -17,7 +17,16 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from .types import ZeroDteResponse
+    from .types import (
+        ExposureLevelsResponse,
+        ExposureSummaryResponse,
+        MaxPainResponse,
+        NarrativeResponse,
+        PricingGreeksResponse,
+        StockSummaryResponse,
+        VrpResponse,
+        ZeroDteResponse,
+    )
 
 BASE_URL = "https://lab.flashalpha.com"
 
@@ -122,7 +131,7 @@ class FlashAlpha:
         """Volatility surface grid (public, no auth required)."""
         return self._get(f"/v1/surface/{_seg(symbol)}")
 
-    def stock_summary(self, symbol: str) -> dict:
+    def stock_summary(self, symbol: str) -> StockSummaryResponse:
         """Comprehensive stock summary (price, vol, exposure, macro)."""
         return self._get(f"/v1/stock/{_seg(symbol)}/summary")
 
@@ -189,19 +198,19 @@ class FlashAlpha:
             params["expiration"] = expiration
         return self._get(f"/v1/exposure/chex/{_seg(symbol)}", params or None)
 
-    def exposure_summary(self, symbol: str) -> dict:
+    def exposure_summary(self, symbol: str) -> ExposureSummaryResponse:
         """Full exposure summary (GEX/DEX/VEX/CHEX + hedging). Requires Growth+."""
         return self._get(f"/v1/exposure/summary/{_seg(symbol)}")
 
-    def exposure_levels(self, symbol: str) -> dict:
+    def exposure_levels(self, symbol: str) -> ExposureLevelsResponse:
         """Key support/resistance levels from options exposure."""
         return self._get(f"/v1/exposure/levels/{_seg(symbol)}")
 
-    def narrative(self, symbol: str) -> dict:
+    def narrative(self, symbol: str) -> NarrativeResponse:
         """Verbal narrative analysis of exposure. Requires Growth+."""
         return self._get(f"/v1/exposure/narrative/{_seg(symbol)}")
 
-    def zero_dte(self, symbol: str, *, strike_range: float | None = None) -> "ZeroDteResponse":
+    def zero_dte(self, symbol: str, *, strike_range: float | None = None) -> ZeroDteResponse:
         """Real-time 0DTE analytics: regime, expected move, pin risk, hedging, decay. Requires Growth+.
 
         Returns a ``ZeroDteResponse`` (a ``TypedDict`` — runtime-equivalent to
@@ -232,7 +241,7 @@ class FlashAlpha:
         type: str = "call",
         r: float | None = None,
         q: float | None = None,
-    ) -> dict:
+    ) -> PricingGreeksResponse:
         """Full BSM greeks (first, second, third order)."""
         params: dict[str, Any] = {"spot": spot, "strike": strike, "dte": dte, "sigma": sigma, "type": type}
         if r is not None:
@@ -315,7 +324,7 @@ class FlashAlpha:
 
     # ── VRP (Variance Risk Premium) ─────────────────────────────────
 
-    def vrp(self, symbol: str) -> dict:
+    def vrp(self, symbol: str) -> VrpResponse:
         """Variance risk premium analytics — the implied-vs-realized vol
         spread, conditioned on dealer gamma and vanna regime, with
         strategy scores for harvesting.
@@ -342,7 +351,7 @@ class FlashAlpha:
 
     # ── Max Pain ────────────────────────────────────────────────────
 
-    def max_pain(self, symbol: str, *, expiration: str | None = None) -> dict:
+    def max_pain(self, symbol: str, *, expiration: str | None = None) -> MaxPainResponse:
         """Max pain analysis with dealer alignment overlay, pain curve, OI
         breakdown, expected move context, pin probability, and multi-expiry
         calendar. Requires Growth+.
