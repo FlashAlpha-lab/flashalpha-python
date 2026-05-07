@@ -8,7 +8,36 @@ import os
 
 import pytest
 
-from flashalpha import FlashAlpha, NotFoundError
+from flashalpha import (
+    ExposureLevelsResponse,
+    FlashAlpha,
+    NarrativeData,
+    NarrativeOiChange,
+    NarrativeResponse,
+    NotFoundError,
+    PricingAdditional,
+    PricingFirstOrder,
+    PricingGreeksResponse,
+    PricingInputs,
+    PricingSecondOrder,
+    PricingThirdOrder,
+    StockSummaryExposure,
+    StockSummaryFearAndGreed,
+    StockSummaryHedgingEstimate,
+    StockSummaryHedgingMove,
+    StockSummaryInterpretation,
+    StockSummaryMacro,
+    StockSummaryMacroIndex,
+    StockSummaryOptionsFlow,
+    StockSummaryPrice,
+    StockSummaryResponse,
+    StockSummarySkew25d,
+    StockSummaryVixFutures,
+    StockSummaryVixTermLevels,
+    StockSummaryVixTermStructure,
+    StockSummaryVolatility,
+    StockSummaryZeroDte,
+)
 
 API_KEY = os.environ.get("FLASHALPHA_API_KEY", "")
 
@@ -120,7 +149,7 @@ def test_exposure_summary(fa):
     assert "underlying_price" in result and isinstance(result["underlying_price"], (int, float))
     assert isinstance(result["as_of"], str) and result["as_of"]
     assert isinstance(result["gamma_flip"], (int, float))
-    assert result["regime"] in ("positive_gamma", "negative_gamma", "neutral", "undetermined")
+    assert result["regime"] in ("positive_gamma", "negative_gamma", "unknown")
     # ── exposures block (4 fields) ──
     e = result["exposures"]
     for k in ("net_gex", "net_dex", "net_vex", "net_chex"):
@@ -572,7 +601,7 @@ def test_max_pain_every_field_declared_in_poco_must_be_referenced(fa):
     assert r["signal"] in ("bullish", "bearish", "neutral")
     assert isinstance(r["expiration"], str) and r["expiration"]
     assert isinstance(r["put_call_oi_ratio"], (int, float))
-    assert r["regime"] in ("positive_gamma", "negative_gamma", "neutral", "undetermined")
+    assert r["regime"] in ("positive_gamma", "negative_gamma", "unknown")
     assert isinstance(r["pin_probability"], int) and 0 <= r["pin_probability"] <= 100
 
     # ── distance{absolute, percent, direction} ──
@@ -1008,3 +1037,213 @@ def test_screener_full_row_is_readable(fa):
     row = r["data"][0]
     for key in ("symbol", "price", "regime"):
         assert key in row, f"row missing {key}"
+
+
+# ── Field-walk coverage tests for the rc.4 POCOs ────────────────────
+#
+# These tests use the TypedDict ``__annotations__`` introspection to walk
+# every field declared on a response model and assert the live response
+# carries it. The point is to fail loudly the moment server adds (or
+# the SDK declares) a field the other side doesn't actually populate —
+# without us having to hand-curate per-field assertions for every nested
+# block.
+
+# TypedDicts whose nested ``__annotations__`` we want to recurse into.
+# Every other annotation type (str, int, float, bool, List[...], unions,
+# Literal, Optional[primitive]) is treated as a leaf.
+_WALKABLE_TYPED_DICTS = {
+    StockSummaryPrice,
+    StockSummarySkew25d,
+    StockSummaryVolatility,
+    StockSummaryOptionsFlow,
+    StockSummaryInterpretation,
+    StockSummaryHedgingMove,
+    StockSummaryHedgingEstimate,
+    StockSummaryZeroDte,
+    StockSummaryExposure,
+    StockSummaryMacroIndex,
+    StockSummaryVixTermLevels,
+    StockSummaryVixTermStructure,
+    StockSummaryVixFutures,
+    StockSummaryFearAndGreed,
+    StockSummaryMacro,
+    NarrativeData,
+    NarrativeOiChange,
+    PricingInputs,
+    PricingFirstOrder,
+    PricingSecondOrder,
+    PricingThirdOrder,
+    PricingAdditional,
+}
+
+
+def _is_walkable_typeddict(ann) -> bool:
+    """True if ``ann`` resolves to one of our nested TypedDicts to recurse into."""
+    # Strip Optional[X] / Union[X, None] / List[X] envelopes — we only
+    # recurse on the *direct* TypedDict annotations (block fields), not on
+    # list-of-TypedDict (those are validated elementwise by the caller).
+    return ann in _WALKABLE_TYPED_DICTS
+
+
+def _assert_all_keys_populated(prefix: str, td_class, value: dict) -> None:
+    """Walk every key declared on ``td_class.__annotations__`` against ``value``.
+
+    For each declared field:
+      * The key must be present in the response dict.
+      * The value must not be ``None``.
+      * If the annotation is a nested TypedDict in ``_WALKABLE_TYPED_DICTS``,
+        recurse into it.
+
+    Lists, primitives, Literals and ``Optional[...]`` envelopes are treated
+    as leaves — caller is responsible for any per-element shape checks
+    they care about (e.g. validating ``narrative.data.top_oi_changes[0]``).
+    """
+    annotations = getattr(td_class, "__annotations__", {})
+    assert annotations, f"{prefix}: TypedDict {td_class.__name__} has no __annotations__"
+    for key, ann in annotations.items():
+        assert key in value, f"{prefix}.{key} missing from response"
+        v = value[key]
+        assert v is not None, f"{prefix}.{key} is None"
+        if _is_walkable_typeddict(ann):
+            assert isinstance(v, dict), f"{prefix}.{key} expected dict, got {type(v).__name__}"
+            _assert_all_keys_populated(f"{prefix}.{key}", ann, v)
+
+
+def test_stock_summary_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``StockSummaryResponse`` (and walkable nested
+    TypedDicts) must be present and non-None on a SPY response.
+
+    The ``exposure`` block is ``Optional`` per the type declaration — only
+    walk into it if the server actually returned it for SPY (it always
+    does in practice for SPY, but be defensive against off-hours / illiquid
+    snapshots).
+    """
+    result = fa.stock_summary("SPY")
+
+    annotations = StockSummaryResponse.__annotations__
+    for key, ann in annotations.items():
+        assert key in result, f"stock_summary.{key} missing from response"
+
+    # Top-level scalars (must be non-None on SPY).
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+    assert result["market_open"] is not None
+
+    # Walk every nested block.
+    _assert_all_keys_populated("price", StockSummaryPrice, result["price"])
+    _assert_all_keys_populated("volatility", StockSummaryVolatility, result["volatility"])
+    _assert_all_keys_populated("options_flow", StockSummaryOptionsFlow, result["options_flow"])
+    _assert_all_keys_populated("macro", StockSummaryMacro, result["macro"])
+
+    # ``exposure`` is Optional — walk only if present (always present for SPY).
+    if result.get("exposure") is not None:
+        _assert_all_keys_populated("exposure", StockSummaryExposure, result["exposure"])
+
+
+def test_narrative_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``NarrativeResponse``, the ``narrative`` block,
+    and ``narrative.data`` must be present on a SPY response.
+
+    The narrative endpoint requires Growth+; if the live key isn't tier-eligible
+    skip rather than fail.
+    """
+    try:
+        result = fa.narrative("SPY")
+    except Exception as exc:  # noqa: BLE001 — tier check needs broad catch
+        if "tier_restricted" in str(exc).lower() or "403" in str(exc):
+            pytest.skip(f"narrative requires Growth+: {exc}")
+        raise
+
+    # Top-level fields on NarrativeResponse.
+    for key in NarrativeResponse.__annotations__:
+        assert key in result, f"narrative.{key} missing from response"
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+    assert result["underlying_price"] is not None
+
+    # narrative.{regime, gex_change, key_levels, flow, vanna, charm, zero_dte, outlook, data}
+    # — every prose string is editorially safe on SPY, so all should be non-empty strings.
+    narrative = result["narrative"]
+    assert isinstance(narrative, dict)
+    from flashalpha import Narrative  # local import to avoid widening module-level imports
+    for key, _ann in Narrative.__annotations__.items():
+        assert key in narrative, f"narrative.narrative.{key} missing"
+        assert narrative[key] is not None, f"narrative.narrative.{key} is None"
+
+    # Prose strings should be non-empty.
+    for key in ("regime", "gex_change", "key_levels", "flow", "vanna", "charm", "zero_dte", "outlook"):
+        assert isinstance(narrative[key], str) and narrative[key], f"narrative.{key} empty"
+
+    # narrative.data — full numeric block.
+    data = narrative["data"]
+    _assert_all_keys_populated("narrative.data", NarrativeData, data)
+
+    # top_oi_changes is List[NarrativeOiChange]. If non-empty, validate one element shape.
+    top = data["top_oi_changes"]
+    assert isinstance(top, list)
+    if top:
+        _assert_all_keys_populated("narrative.data.top_oi_changes[0]", NarrativeOiChange, top[0])
+
+
+def test_exposure_levels_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``ExposureLevelsResponse`` and ``ExposureLevels``
+    must be present on a SPY response.
+
+    Specifically asserts ``zero_dte_magnet`` is in ``result["levels"]`` and
+    non-None on SPY (which always has a same-day expiry intraday) — this
+    assertion was missing from the existing ``test_exposure_levels``.
+    """
+    result = fa.exposure_levels("SPY")
+
+    for key in ExposureLevelsResponse.__annotations__:
+        assert key in result, f"exposure_levels.{key} missing from response"
+
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+    assert result["underlying_price"] is not None
+
+    levels = result["levels"]
+    from flashalpha import ExposureLevels  # local import; widens nothing important
+    for key in ExposureLevels.__annotations__:
+        assert key in levels, f"exposure_levels.levels.{key} missing"
+
+    # SPY always trades a same-day expiry during RTH, so zero_dte_magnet
+    # MUST be populated. This is the assertion the existing field-coverage
+    # check was missing in both repos.
+    assert levels["zero_dte_magnet"] is not None, "levels.zero_dte_magnet is None on SPY"
+    assert isinstance(levels["zero_dte_magnet"], (int, float))
+
+
+def test_pricing_greeks_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``PricingGreeksResponse`` (and the nested
+    ``inputs``, ``first_order``, ``second_order``, ``third_order``,
+    ``additional`` blocks) must be present and non-None.
+
+    The one exception: ``additional["lambda"]`` is None when
+    ``theoretical_price`` is <= 0, because lambda = delta * spot / price
+    blows up. The chosen inputs (spot=580, strike=580, dte=30, sigma=0.18,
+    type=call) yield a strictly positive theoretical price, so lambda
+    should be non-None — but we still guard the assertion.
+    """
+    result = fa.greeks(spot=580, strike=580, dte=30, sigma=0.18, type="call")
+
+    for key in PricingGreeksResponse.__annotations__:
+        assert key in result, f"pricing.greeks.{key} missing from response"
+
+    assert result["theoretical_price"] is not None
+    assert isinstance(result["theoretical_price"], (int, float))
+
+    _assert_all_keys_populated("pricing.greeks.inputs", PricingInputs, result["inputs"])
+    _assert_all_keys_populated("pricing.greeks.first_order", PricingFirstOrder, result["first_order"])
+    _assert_all_keys_populated("pricing.greeks.second_order", PricingSecondOrder, result["second_order"])
+    _assert_all_keys_populated("pricing.greeks.third_order", PricingThirdOrder, result["third_order"])
+
+    # ``additional`` carries ``lambda`` (Python keyword — read via dict access)
+    # and ``veta``. lambda is None iff theoretical_price <= 0.
+    additional = result["additional"]
+    assert "lambda" in additional, "pricing.greeks.additional.lambda missing"
+    assert "veta" in additional, "pricing.greeks.additional.veta missing"
+    assert additional["veta"] is not None
+    if result["theoretical_price"] > 0:
+        assert additional["lambda"] is not None, "additional.lambda is None despite price > 0"
+    # else: lambda may legitimately be None — don't assert.

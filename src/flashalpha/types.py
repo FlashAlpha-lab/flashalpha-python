@@ -523,8 +523,9 @@ class VrpGexConditioned(TypedDict, total=False):
 
     # Gamma regime at this snapshot — derived from spot vs gamma-flip on
     # the same chain. ``"positive_gamma"`` | ``"negative_gamma"`` |
-    # ``"neutral"`` (when net_gex straddles zero).
-    regime: Optional[str]
+    # ``"unknown"`` (when net_gex straddles zero or there's insufficient
+    # data to classify).
+    regime: Optional[Literal["positive_gamma", "negative_gamma", "unknown"]]
     # 0-100 composite — how favourable the current VRP is to harvest GIVEN
     # the gamma regime. >70 = strong harvest signal; <30 = avoid; in
     # between = mixed.
@@ -560,7 +561,7 @@ class VrpRegime(TypedDict, total=False):
 
     # ``"positive_gamma"`` | ``"negative_gamma"`` | ``"unknown"`` —
     # same classifier as exposure_summary.
-    gamma: Optional[str]
+    gamma: Optional[Literal["positive_gamma", "negative_gamma", "unknown"]]
     # ``"harvestable"`` | ``"selling_too_cheap"`` | ``"buying_too_cheap"``
     # | ``"neutral"`` etc. — describes the VRP environment in trading
     # vocabulary. ``None`` on historical when there's not enough history
@@ -1398,7 +1399,7 @@ class NarrativeData(TypedDict, total=False):
     put_wall: Optional[float]
     # Dealer-positioning regime classification (same enum as
     # ``exposure_summary.regime``).
-    regime: Optional[str]
+    regime: Optional[Literal["positive_gamma", "negative_gamma", "unknown"]]
     # 0DTE share of full-chain GEX as a percentage. Backs the
     # ``zero_dte`` narrative line.
     zero_dte_pct: Optional[float]
