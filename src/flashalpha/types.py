@@ -2529,17 +2529,25 @@ class AccountResponse(TypedDict, total=False):
     """Account info & quota from ``GET /v1/account``.
 
     Returns the caller's plan tier, the day's request quota, how much has
-    been consumed, and when the counter resets. ``daily_limit``, ``usage_today``,
-    and ``remaining`` are integers; ``resets_at`` is an ISO timestamp.
+    been consumed, and when the counter resets.
+
+    Note ``daily_limit`` and ``remaining`` are **strings, not ints** —
+    they are numeric strings (e.g. ``"1000"``) on bounded plans and the
+    literal ``"unlimited"`` on Alpha / Enterprise tiers. Only ``usage_today``
+    is a true integer.
     """
 
     user_id: Optional[str]
     email: Optional[str]
     # Plan tier (e.g. ``"free"``, ``"basic"``, ``"growth"``, ``"alpha"``).
     plan: Optional[str]
-    daily_limit: Optional[int]
+    # Numeric string (e.g. ``"1000"``) on bounded plans; literal
+    # ``"unlimited"`` on Alpha/Enterprise.
+    daily_limit: Optional[str]
+    # Requests consumed today (integer).
     usage_today: Optional[int]
-    remaining: Optional[int]
+    # Numeric string on bounded plans; ``"unlimited"`` on uncapped tiers.
+    remaining: Optional[str]
     # ISO timestamp at which ``usage_today`` resets to zero.
     resets_at: Optional[str]
 
