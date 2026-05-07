@@ -1646,3 +1646,741 @@ class PricingGreeksResponse(TypedDict, total=False):
     # Additional higher-order Greeks (``lambda``, ``veta``). See
     # ``PricingAdditional``.
     additional: PricingAdditional
+
+
+# ─── Volatility ──────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/volatility/{symbol}`` (Growth+).
+#
+# Single-call vol dashboard. Bundles the realized-vol ladder, ATM IV, the
+# IV-RV spread (VRP) at multiple horizons, the per-expiry skew profiles,
+# the term-structure slope, IV dispersion across the surface, GEX/theta
+# bucketed by DTE, the put/call profile (per-expiry + by-moneyness), OI
+# concentration, the multi-move dealer hedging table, and chain liquidity.
+#
+# Same shape on the live API and on the historical API with ``?at=``.
+
+
+class VolatilityRealizedVol(TypedDict, total=False):
+    """Realized-volatility ladder — annualised %, computed from spot
+    log-returns over the trailing 5/10/20/30/60 trading days.
+
+    Use against ``atm_iv`` to read the variance risk premium at multiple
+    horizons (see ``iv_rv_spreads``). All fields are ``Optional`` because
+    very thin or new-listed symbols may not have enough data to compute the
+    longer-window numbers.
+    """
+
+    rv_5d: Optional[float]
+    rv_10d: Optional[float]
+    rv_20d: Optional[float]
+    rv_30d: Optional[float]
+    rv_60d: Optional[float]
+
+
+class VolatilityIvRvSpreads(TypedDict, total=False):
+    """IV-RV spreads (variance risk premia) at the standard horizons.
+
+    Each ``vrp_Nd`` field is ``atm_iv - rv_Nd``. Positive = options price
+    more vol than realised → premium for selling vol. Negative = options
+    cheap vs realised → premium for buying vol. ``assessment`` is a
+    short categorical label (e.g. ``"rich"``, ``"fair"``, ``"cheap"``)
+    summarising the overall posture across horizons.
+    """
+
+    vrp_5d: Optional[float]
+    vrp_10d: Optional[float]
+    vrp_20d: Optional[float]
+    vrp_30d: Optional[float]
+    # Plain-text classification of the prevailing VRP regime — safe to
+    # surface verbatim. Values are not enumerated by the API; treat as a
+    # free-form string.
+    assessment: Optional[str]
+
+
+class VolatilitySkewProfile(TypedDict, total=False):
+    """One per-expiry row of the skew profile.
+
+    Reports IV at five canonical points across the smile (10-delta put,
+    25-delta put, ATM, 25-delta call, 10-delta call) along with two
+    derived measures (``skew_25d``, ``smile_ratio``) and the wing-tail
+    convexity descriptor.
+    """
+
+    # ``"yyyy-MM-dd"`` of the expiry this row was measured at.
+    expiry: Optional[str]
+    # Calendar days from ``as_of`` to ``expiry``.
+    days_to_expiry: Optional[int]
+    # IV at the 10-delta put (deep crash-insurance wing, annualised %).
+    put_10d_iv: Optional[float]
+    # IV at the 25-delta put (annualised %).
+    put_25d_iv: Optional[float]
+    # ATM IV at this expiry (annualised %).
+    atm_iv: Optional[float]
+    # IV at the 25-delta call (annualised %).
+    call_25d_iv: Optional[float]
+    # IV at the 10-delta call (deep upside-tail wing, annualised %).
+    call_10d_iv: Optional[float]
+    # ``put_25d_iv - call_25d_iv``. Positive = puts richer than calls
+    # (downside-skewed smile, the typical equity-index regime).
+    skew_25d: Optional[float]
+    # ``(put_25d_iv + call_25d_iv) / (2 * atm_iv)`` — wing-vs-ATM
+    # curvature premium. ``> 1`` means kurtotic smile.
+    smile_ratio: Optional[float]
+    # Tail convexity descriptor — captures the additional curvature of
+    # the 10-delta wings beyond the 25-delta points.
+    tail_convexity: Optional[float]
+
+
+class VolatilityTermStructure(TypedDict, total=False):
+    """IV term structure shape — near-end slope, far-end slope, regime label."""
+
+    # Slope of the near-end of the IV term structure as a percentage
+    # (e.g. ``2.5`` = +2.5% steepness from front to mid). Positive =
+    # contango on the front; negative = front-month inversion.
+    near_slope_pct: Optional[float]
+    # Slope of the far-end of the term structure (mid- to long-dated).
+    far_slope_pct: Optional[float]
+    # Categorical label summarising the overall term-structure shape —
+    # values like ``"contango"``, ``"backwardation"``, ``"flat"``, etc.
+    # Treat as free-form; not enumerated.
+    state: Optional[str]
+
+
+class VolatilityIvDispersion(TypedDict, total=False):
+    """IV dispersion across the surface.
+
+    ``cross_expiry`` measures how much ATM IV varies across expirations;
+    ``cross_strike`` measures how much IV varies across moneyness at a
+    fixed expiry. Together they summarise how "lumpy" the surface is
+    relative to a smooth reference.
+    """
+
+    cross_expiry: Optional[float]
+    cross_strike: Optional[float]
+
+
+class VolatilityGexByDte(TypedDict, total=False):
+    """One row of the GEX-by-DTE-bucket breakdown.
+
+    Bucketing the chain by days-to-expiry exposes which tenors are
+    driving the dealer-gamma book — e.g. 0-7d dominance signals a 0DTE-
+    weighted regime, while >90d weight signals leaps-driven positioning.
+    """
+
+    # Bucket label (e.g. ``"0-7d"``, ``"8-30d"``, ``"31-90d"``,
+    # ``">90d"``). Treat as free-form string; the API may add buckets.
+    bucket: Optional[str]
+    # Net GEX contribution from this bucket, dollars per 1% spot move.
+    net_gex: Optional[float]
+    # This bucket's share of total chain GEX as a percentage.
+    pct_of_total: Optional[float]
+    # Number of distinct contracts contributing to this bucket.
+    contract_count: Optional[int]
+
+
+class VolatilityThetaByDte(TypedDict, total=False):
+    """One row of the theta-by-DTE-bucket breakdown."""
+
+    bucket: Optional[str]
+    # Net theta contribution from this bucket (dollars/day, signed).
+    net_theta: Optional[float]
+    contract_count: Optional[int]
+
+
+class VolatilityPcByExpiry(TypedDict, total=False):
+    """One row of the per-expiry put/call OI + volume breakdown."""
+
+    expiry: Optional[str]
+    call_oi: Optional[int]
+    put_oi: Optional[int]
+    # ``put_oi / call_oi``. ``> 1`` = put-heavy at this expiry.
+    pc_ratio_oi: Optional[float]
+    call_volume: Optional[int]
+    put_volume: Optional[int]
+    # ``put_volume / call_volume``. Intraday flow tilt; noisier than OI.
+    pc_ratio_volume: Optional[float]
+
+
+class VolatilityPcByMoneyness(TypedDict, total=False):
+    """Put/call OI grouped into OTM / ATM / ITM buckets.
+
+    ``otm`` / ``atm`` / ``itm`` here use the canonical FlashAlpha
+    moneyness bands (driven by spot, not delta). Useful for spotting
+    a name where OI is concentrated in OTM puts (defensive crash
+    insurance) vs ITM calls (synthetic stock positioning).
+    """
+
+    otm_call_oi: Optional[int]
+    atm_call_oi: Optional[int]
+    itm_call_oi: Optional[int]
+    otm_put_oi: Optional[int]
+    atm_put_oi: Optional[int]
+    itm_put_oi: Optional[int]
+
+
+class VolatilityPutCallProfile(TypedDict, total=False):
+    """Put/call profile — per-expiry rows + an OTM/ATM/ITM moneyness cube."""
+
+    by_expiry: List[VolatilityPcByExpiry]
+    by_moneyness: VolatilityPcByMoneyness
+
+
+class VolatilityOiConcentration(TypedDict, total=False):
+    """OI concentration metrics — top-N strike share + Herfindahl index.
+
+    High concentration (e.g. ``top_3_pct > 50``) signals a chain where
+    a small handful of strikes dominate — typical of pinning setups or
+    LEAP-heavy positioning. Low concentration = diffuse positioning.
+    """
+
+    # Combined OI share of the three highest-OI strikes, as a percentage.
+    top_3_pct: Optional[float]
+    top_5_pct: Optional[float]
+    top_10_pct: Optional[float]
+    # Herfindahl-Hirschman index over per-strike OI shares. Range 0-1
+    # (often expressed 0-10000 in classical HHI; here normalised 0-1).
+    # Higher = more concentrated.
+    herfindahl: Optional[float]
+
+
+class VolatilityHedgingScenario(TypedDict, total=False):
+    """One row of the multi-move dealer-hedging-flow table.
+
+    Unlike ``exposure_summary`` (which only exposes ±1%), this endpoint
+    returns the hedging flow at multiple ``move_pct`` levels in a single
+    list — useful for plotting the full convexity curve.
+    """
+
+    # Spot-move percentage this row was computed at (signed; positive =
+    # spot up, negative = spot down).
+    move_pct: Optional[float]
+    # Estimated dealer shares to trade. Sign aligned with ``direction``.
+    dealer_shares: Optional[float]
+    # ``"buy"`` or ``"sell"`` — convenience label matching the sign of
+    # ``dealer_shares``.
+    direction: Optional[Literal["buy", "sell"]]
+    # ``|dealer_shares| × current_spot``. Cross-symbol comparison.
+    notional_usd: Optional[float]
+
+
+class VolatilityLiquidity(TypedDict, total=False):
+    """Chain-liquidity summary — ATM vs wing average spreads + counts."""
+
+    # Average bid-ask spread of ATM contracts as a percentage of mid.
+    atm_avg_spread_pct: Optional[float]
+    # Average bid-ask spread of wing (deep OTM/ITM) contracts.
+    wing_avg_spread_pct: Optional[float]
+    # Count of contracts in the ATM band.
+    atm_contracts: Optional[int]
+    # Count of contracts in the wing band.
+    wing_contracts: Optional[int]
+
+
+class VolatilityResponse(TypedDict, total=False):
+    """Comprehensive volatility dashboard from ``GET /v1/volatility/{symbol}``.
+
+    Single-call payload bundling the realized-vol ladder, ATM IV, IV-RV
+    spreads at multiple horizons, per-expiry skew profiles, term-structure
+    slope, IV dispersion, GEX/theta by DTE bucket, the put/call profile,
+    OI concentration, multi-move dealer hedging table, and chain liquidity.
+
+    Same shape on the live API and on the historical API with ``?at=``
+    (snapped to the requested minute).
+
+    Tier requirement: Growth+ (returns 403 ``tier_restricted`` below).
+    """
+
+    # Underlying symbol echoed from the request path.
+    symbol: str
+    # Spot mid (live) or minute-snapped quote (historical), in dollars.
+    underlying_price: Optional[float]
+    # ET wall-clock timestamp this snapshot was computed for.
+    as_of: str
+    # ``True`` if NYSE was open at ``as_of``.
+    market_open: Optional[bool]
+    # Realized-volatility ladder. See ``VolatilityRealizedVol``.
+    realized_vol: VolatilityRealizedVol
+    # Front-month ATM IV (annualised %, e.g. 18.5 = 18.5%).
+    atm_iv: Optional[float]
+    # IV-RV spreads at multiple horizons + classification. See
+    # ``VolatilityIvRvSpreads``.
+    iv_rv_spreads: VolatilityIvRvSpreads
+    # Per-expiry skew profiles. See ``VolatilitySkewProfile``.
+    skew_profiles: List[VolatilitySkewProfile]
+    # IV term-structure shape. See ``VolatilityTermStructure``.
+    term_structure: VolatilityTermStructure
+    # IV dispersion across the surface. See ``VolatilityIvDispersion``.
+    iv_dispersion: VolatilityIvDispersion
+    # GEX bucketed by DTE. See ``VolatilityGexByDte``.
+    gex_by_dte: List[VolatilityGexByDte]
+    # Theta bucketed by DTE. See ``VolatilityThetaByDte``.
+    theta_by_dte: List[VolatilityThetaByDte]
+    # Put/call profile (per-expiry + by-moneyness). See
+    # ``VolatilityPutCallProfile``.
+    put_call_profile: VolatilityPutCallProfile
+    # OI concentration metrics. See ``VolatilityOiConcentration``.
+    oi_concentration: VolatilityOiConcentration
+    # Multi-move dealer hedging table. See ``VolatilityHedgingScenario``.
+    hedging_scenarios: List[VolatilityHedgingScenario]
+    # Chain-liquidity summary. See ``VolatilityLiquidity``.
+    liquidity: VolatilityLiquidity
+
+
+# ─── AdvVolatility ───────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/adv_volatility/{symbol}`` (Alpha+).
+#
+# Quant-level vol surface analytics: SVI parameters per expiry, forward
+# prices, the full total-variance surface (moneyness × expiries grid),
+# arbitrage flags, variance-swap fair values, and the higher-order Greek
+# surfaces (vanna, charm, volga, speed). Same shape on live and historical.
+
+
+class AdvVolSviParam(TypedDict, total=False):
+    """One per-expiry row of fitted SVI (Stochastic Volatility Inspired)
+    parameters.
+
+    The SVI parameterisation models total variance as
+    ``a + b * (rho * (k - m) + sqrt((k - m)^2 + sigma^2))`` where ``k``
+    is log-moneyness. The five free parameters (``a``, ``b``, ``rho``,
+    ``m``, ``sigma``) fit each expiry independently. ``atm_total_variance``
+    and ``atm_iv`` are derived for convenience.
+    """
+
+    expiry: Optional[str]
+    days_to_expiry: Optional[int]
+    # Forward price used as the SVI reference (i.e. ``log(K/F)`` is the
+    # moneyness coordinate on this row's curve).
+    forward: Optional[float]
+    # Vertical-shift parameter (overall variance level).
+    a: Optional[float]
+    # Slope parameter (controls the angle of the wings).
+    b: Optional[float]
+    # Correlation parameter (skew direction; -1..+1).
+    rho: Optional[float]
+    # Horizontal-shift parameter (moneyness location of the curve's
+    # minimum).
+    m: Optional[float]
+    # ATM curvature parameter (controls smile sharpness).
+    sigma: Optional[float]
+    # Total variance at ATM (``T × atm_iv²``). Useful for comparing
+    # tenors directly.
+    atm_total_variance: Optional[float]
+    # ATM IV implied by the fit (annualised %).
+    atm_iv: Optional[float]
+
+
+class AdvVolForwardPrice(TypedDict, total=False):
+    """One per-expiry row of the forward-price + basis breakdown."""
+
+    expiry: Optional[str]
+    days_to_expiry: Optional[int]
+    # Forward price for this expiry, in dollars.
+    forward: Optional[float]
+    # Underlying spot used as the basis reference.
+    spot: Optional[float]
+    # ``(forward - spot) / spot * 100``. Positive = forward priced above
+    # spot (typical contango / cost-of-carry); negative = backwardation
+    # (often dividend-rich names approaching ex-dividend).
+    basis_pct: Optional[float]
+
+
+class AdvVolTotalVarianceSurface(TypedDict, total=False):
+    """The full total-variance / IV surface as parallel grids.
+
+    ``total_variance`` and ``implied_vol`` are 2D lists indexed
+    ``[i][j]`` where ``i`` is the moneyness index and ``j`` is the
+    expiry index. Use ``moneyness[i]`` and ``expiries[j]`` /
+    ``tenors[j]`` to recover the axes.
+    """
+
+    # Log-moneyness grid axis (one entry per row of the surface grids).
+    moneyness: List[float]
+    # Expiry-date axis (``"yyyy-MM-dd"``, one entry per column).
+    expiries: List[str]
+    # Calendar-day-to-expiry axis aligned with ``expiries``.
+    tenors: List[float]
+    # Total variance grid: ``T × σ²`` at each (moneyness, expiry) point.
+    total_variance: List[List[float]]
+    # Implied vol grid in annualised %.
+    implied_vol: List[List[float]]
+
+
+class AdvVolArbitrageFlag(TypedDict, total=False):
+    """One arbitrage-violation flag detected on the fitted surface.
+
+    Detects calendar/butterfly arbitrage in the fitted SVI surface —
+    points where total variance is non-monotone in time (calendar
+    arb) or where the call price is non-convex in strike (butterfly arb).
+    Production traders should treat any non-empty flag list with caution.
+    """
+
+    expiry: Optional[str]
+    # Arbitrage type — common values include ``"calendar"`` and
+    # ``"butterfly"``. Treat as free-form; the API may add types.
+    type: Optional[str]
+    # Strike or log-moneyness coordinate where the violation was detected.
+    strike_or_k: Optional[float]
+    # Plain-English description of the violation. Safe to surface
+    # verbatim in diagnostic UIs.
+    description: Optional[str]
+
+
+class AdvVolVarianceSwap(TypedDict, total=False):
+    """One per-expiry row of variance-swap fair values."""
+
+    expiry: Optional[str]
+    days_to_expiry: Optional[int]
+    # Fair variance for a synthetic variance swap on this name at this
+    # tenor (annualised variance, decimal — e.g. 0.04 = 20% vol²).
+    fair_variance: Optional[float]
+    # ``sqrt(fair_variance) * 100`` — the variance-swap fair vol
+    # expressed as an annualised percentage.
+    fair_vol: Optional[float]
+    # ATM IV at this expiry, for comparison against ``fair_vol``. The
+    # spread ``fair_vol - atm_iv`` is the convexity premium.
+    atm_iv: Optional[float]
+    # ``fair_vol - atm_iv`` — captures the curvature premium (variance-
+    # swap fair vol is always ≥ ATM IV in arbitrage-free markets).
+    convexity_adjustment: Optional[float]
+
+
+class AdvVolGreekSurface(TypedDict, total=False):
+    """A single higher-order Greek surface as a parallel grid.
+
+    ``values`` is a 2D list indexed ``[i][j]`` where ``i`` is the strike
+    index and ``j`` is the expiry index. Use ``strikes[i]`` and
+    ``expiries[j]`` to recover the axes.
+    """
+
+    # Strike grid axis (one entry per row).
+    strikes: List[float]
+    # Expiry-date axis (``"yyyy-MM-dd"``, one per column).
+    expiries: List[str]
+    # The Greek-value grid.
+    values: List[List[float]]
+
+
+class AdvVolGreeksSurfaces(TypedDict, total=False):
+    """The four canonical higher-order Greek surfaces.
+
+    All four use the same axes (strikes × expiries) but different value
+    semantics. Vanna and charm are second-order; volga is the second
+    derivative wrt vol; speed is the third derivative wrt spot.
+    """
+
+    # ``∂²Price / ∂Spot∂σ`` surface — how delta changes with IV.
+    vanna: AdvVolGreekSurface
+    # ``∂²Price / ∂Spot∂t`` surface — how delta drifts with time.
+    charm: AdvVolGreekSurface
+    # ``∂²Price / ∂σ²`` surface — how vega changes with IV (vol-of-vol).
+    volga: AdvVolGreekSurface
+    # ``∂³Price / ∂Spot³`` surface — gamma-of-spot, the cubic spot
+    # derivative.
+    speed: AdvVolGreekSurface
+
+
+class AdvVolatilityResponse(TypedDict, total=False):
+    """Advanced volatility dashboard from ``GET /v1/adv_volatility/{symbol}``.
+
+    Quant-level surface analytics: per-expiry SVI parameters, forward
+    prices, the full total-variance surface (moneyness × expiries grid),
+    arbitrage-flag diagnostics, variance-swap fair values, and the four
+    higher-order Greek surfaces (vanna, charm, volga, speed).
+
+    Same shape on the live API and on the historical API with ``?at=``.
+
+    Tier requirement: Alpha+ (returns 403 ``tier_restricted`` below).
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    market_open: Optional[bool]
+    # Per-expiry fitted SVI parameters. See ``AdvVolSviParam``.
+    svi_parameters: List[AdvVolSviParam]
+    # Forward prices + basis. See ``AdvVolForwardPrice``.
+    forward_prices: List[AdvVolForwardPrice]
+    # The full total-variance / IV surface. See
+    # ``AdvVolTotalVarianceSurface``.
+    total_variance_surface: AdvVolTotalVarianceSurface
+    # Arbitrage-violation flags. Empty list = clean surface. See
+    # ``AdvVolArbitrageFlag``.
+    arbitrage_flags: List[AdvVolArbitrageFlag]
+    # Variance-swap fair values. See ``AdvVolVarianceSwap``.
+    variance_swap_fair_values: List[AdvVolVarianceSwap]
+    # Four higher-order Greek surfaces. See ``AdvVolGreeksSurfaces``.
+    greeks_surfaces: AdvVolGreeksSurfaces
+
+
+# ─── Surface ─────────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/surface/{symbol}`` (public).
+#
+# Compact rectangular IV grid for plotting / interpolating against. Public
+# (no auth required on live; historical requires ``at=`` and an API key).
+
+
+class SurfaceResponse(TypedDict, total=False):
+    """Implied-vol surface grid from ``GET /v1/surface/{symbol}``.
+
+    Returns a rectangular ``tenors × moneyness`` grid of implied vols
+    (annualised %) along with the axes and the list of expiry slices
+    that fed the fit. Useful for direct plotting or interpolation.
+
+    On the historical API, this endpoint requires ``?at=`` and may raise
+    ``InsufficientDataError`` when the chain has too few liquid OTM
+    contracts to fill the grid at that minute.
+    """
+
+    # Underlying symbol echoed from the request path.
+    symbol: str
+    # Spot mid at ``as_of``.
+    spot: Optional[float]
+    # ET wall-clock timestamp.
+    as_of: str
+    # Grid dimension (the surface is ``grid_size × grid_size``).
+    grid_size: Optional[int]
+    # Tenor axis in years (one entry per row of ``iv``).
+    tenors: List[float]
+    # Log-moneyness axis (one entry per column of ``iv``).
+    moneyness: List[float]
+    # The IV grid, annualised %. Indexed ``iv[i][j]`` with
+    # ``i`` = tenor index, ``j`` = moneyness index.
+    iv: List[List[float]]
+    # Expiry slices used to build the fit
+    # (e.g. ``["2026-05-16", "2026-06-20", ...]``).
+    slices_used: List[str]
+
+
+# ─── Exposure (GEX/DEX/VEX/CHEX) ─────────────────────────────────────────────
+#
+# Typed models for the per-strike exposure endpoints:
+#   - ``GET /v1/exposure/gex/{symbol}``
+#   - ``GET /v1/exposure/dex/{symbol}``
+#   - ``GET /v1/exposure/vex/{symbol}``
+#   - ``GET /v1/exposure/chex/{symbol}``
+#
+# Each one returns a thin response wrapper plus a per-strike row list. The
+# row schemas differ per Greek but share the same headline shape (strike +
+# call/put/net values). Same wire shape on live + historical.
+
+
+class GexStrikeRow(TypedDict, total=False):
+    """One per-strike row of the GEX breakdown.
+
+    Contains the call/put/net GEX values plus the supporting OI and
+    volume context for that strike. ``call_oi_change`` /
+    ``put_oi_change`` are the day-over-day OI deltas; on the historical
+    API these are always ``None`` (no prior-day OI join yet).
+    """
+
+    strike: Optional[float]
+    # Call-side GEX contribution at this strike (dollars per 1% spot).
+    call_gex: Optional[float]
+    # Put-side GEX contribution at this strike.
+    put_gex: Optional[float]
+    # ``call_gex - put_gex`` (sign convention: positive = dealers long
+    # gamma at this strike).
+    net_gex: Optional[float]
+    call_oi: Optional[int]
+    put_oi: Optional[int]
+    call_volume: Optional[int]
+    put_volume: Optional[int]
+    # Day-over-day OI delta for the call side. ``None`` on historical.
+    call_oi_change: Optional[int]
+    put_oi_change: Optional[int]
+
+
+class GexResponse(TypedDict, total=False):
+    """Per-strike GEX breakdown from ``GET /v1/exposure/gex/{symbol}``.
+
+    Headline numbers (``net_gex``, ``gamma_flip``, ``net_gex_label``)
+    plus a per-strike row list. Filterable by ``expiration`` and
+    ``min_oi`` query parameters; same shape on live + historical.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    # Strike where net dealer gamma crosses zero across the chain.
+    gamma_flip: Optional[float]
+    # Net GEX across the chain (dollars per 1% spot move).
+    net_gex: Optional[float]
+    # Plain-text categorical label for the GEX regime
+    # (e.g. ``"long_gamma"``, ``"short_gamma"``, ``"flat"``).
+    net_gex_label: Optional[str]
+    # Per-strike rows. See ``GexStrikeRow``.
+    strikes: List[GexStrikeRow]
+
+
+class DexStrikeRow(TypedDict, total=False):
+    """One per-strike row of the DEX breakdown."""
+
+    strike: Optional[float]
+    # Call-side DEX (dollars).
+    call_dex: Optional[float]
+    # Put-side DEX (dollars).
+    put_dex: Optional[float]
+    # ``call_dex + put_dex`` (signed; sign indicates dealer hedge
+    # direction at this strike).
+    net_dex: Optional[float]
+
+
+class DexResponse(TypedDict, total=False):
+    """Per-strike DEX breakdown from ``GET /v1/exposure/dex/{symbol}``."""
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    # Net DEX across the chain (dollars).
+    net_dex: Optional[float]
+    strikes: List[DexStrikeRow]
+
+
+class VexStrikeRow(TypedDict, total=False):
+    """One per-strike row of the VEX (vanna exposure) breakdown."""
+
+    strike: Optional[float]
+    call_vex: Optional[float]
+    put_vex: Optional[float]
+    net_vex: Optional[float]
+
+
+class VexResponse(TypedDict, total=False):
+    """Per-strike VEX breakdown from ``GET /v1/exposure/vex/{symbol}``.
+
+    Vanna exposure measures the dealer-book sensitivity to a 1-vol-point
+    move in IV. ``vex_interpretation`` is a plain-English narrative line
+    summarising the prevailing vanna posture — safe to surface verbatim.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    # Net VEX across the chain (dollars per 1-vol-point).
+    net_vex: Optional[float]
+    # Plain-English narrative for the vanna regime. Safe to surface
+    # verbatim in customer-facing UIs.
+    vex_interpretation: Optional[str]
+    strikes: List[VexStrikeRow]
+
+
+class ChexStrikeRow(TypedDict, total=False):
+    """One per-strike row of the CHEX (charm exposure) breakdown."""
+
+    strike: Optional[float]
+    call_chex: Optional[float]
+    put_chex: Optional[float]
+    net_chex: Optional[float]
+
+
+class ChexResponse(TypedDict, total=False):
+    """Per-strike CHEX breakdown from ``GET /v1/exposure/chex/{symbol}``.
+
+    Charm (``∂Delta/∂t``) exposure — captures the time-decay drift in
+    the dealer hedge book. ``chex_interpretation`` is a plain-English
+    line summarising the prevailing posture (e.g. into-close pressure
+    direction); safe to surface verbatim.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    # Net CHEX across the chain (dollars per day).
+    net_chex: Optional[float]
+    # Plain-English narrative for the charm regime.
+    chex_interpretation: Optional[str]
+    strikes: List[ChexStrikeRow]
+
+
+# ─── OptionQuote / StockQuote (live only) ────────────────────────────────────
+#
+# Typed models for the live-only market-data endpoints:
+#   - ``GET /optionquote/{ticker}`` (Growth+)
+#   - ``GET /stockquote/{ticker}`` (Free+)
+#
+# These do not exist on the historical API in the same form (historical
+# uses ``/v1/optionquote`` and ``/v1/stockquote`` with ``?at=``). The wire
+# shape carries several camelCase field names — preserved here verbatim so
+# the typed dict matches the actual JSON keys (NOT pythonised).
+
+
+class OptionQuoteResponse(TypedDict, total=False):
+    """Single-contract option quote from ``GET /optionquote/{ticker}`` (live).
+
+    Growth+ endpoint. Returns the bid/ask/mid for one option contract
+    along with the full first/second-order Greek block, the IV (with
+    bid/ask IV bracket), the SVI-vol estimate (gated by tier — see
+    ``svi_vol_gated``), and OI / volume.
+
+    Camel-cased keys on the wire — ``bidSize``, ``askSize``,
+    ``lastUpdate`` are NOT pythonised. Read them as
+    ``response["lastUpdate"]`` etc.
+    """
+
+    # ``"call"`` or ``"put"``.
+    type: Optional[Literal["call", "put"]]
+    # ``"yyyy-MM-dd"`` of the expiry.
+    expiry: Optional[str]
+    # Strike in dollars.
+    strike: Optional[float]
+    # National best bid / best offer / mid (dollars).
+    bid: Optional[float]
+    ask: Optional[float]
+    mid: Optional[float]
+    # Camel-cased on the wire — preserved verbatim.
+    bidSize: Optional[int]
+    askSize: Optional[int]
+    # ET wall-clock timestamp of the underlying ``last`` print backing
+    # this quote. Camel-cased on the wire.
+    lastUpdate: Optional[str]
+    # Mid-IV (annualised %, e.g. 18.5 = 18.5%).
+    implied_vol: Optional[float]
+    # IV at the bid and ask (brackets ``implied_vol``).
+    iv_bid: Optional[float]
+    iv_ask: Optional[float]
+    # First-order Greeks.
+    delta: Optional[float]
+    gamma: Optional[float]
+    theta: Optional[float]
+    vega: Optional[float]
+    rho: Optional[float]
+    # Second-order Greeks.
+    vanna: Optional[float]
+    charm: Optional[float]
+    # SVI-fitted vol estimate. ``None`` when ``svi_vol_gated`` is not
+    # ``"open"`` (e.g. ``"backtest_mode"`` on historical-replay calls,
+    # ``"tier_restricted"`` on lower tiers, ``"unfit"`` when the surface
+    # could not be fit at this expiry). Treat the gating string as
+    # free-form — values may be added.
+    svi_vol: Optional[float]
+    # Free-form gating reason for ``svi_vol`` (e.g. ``"open"``,
+    # ``"tier_restricted"``, ``"unfit"``, ``"backtest_mode"``).
+    svi_vol_gated: Optional[str]
+    open_interest: Optional[int]
+    volume: Optional[int]
+    # Underlying symbol — present on some response variants (e.g. when
+    # the request omits one of the strike/expiry/type filters), absent
+    # on the strict single-contract response.
+    underlying: Optional[str]
+
+
+class StockQuoteResponse(TypedDict, total=False):
+    """Stock quote from ``GET /stockquote/{ticker}`` (live).
+
+    Free+ endpoint. Returns a thin bid/ask/mid + last quote for the
+    underlying. Camel-cased keys on the wire — ``lastPrice``,
+    ``lastUpdate`` are NOT pythonised.
+    """
+
+    ticker: Optional[str]
+    bid: Optional[float]
+    ask: Optional[float]
+    # ``(bid + ask) / 2``.
+    mid: Optional[float]
+    # Last printed trade in dollars. Camel-cased on the wire.
+    lastPrice: Optional[float]
+    # ET wall-clock timestamp of the ``lastPrice`` print. Camel-cased.
+    lastUpdate: Optional[str]

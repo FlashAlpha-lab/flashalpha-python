@@ -18,12 +18,21 @@ from .exceptions import (
 
 if TYPE_CHECKING:
     from .types import (
+        AdvVolatilityResponse,
+        ChexResponse,
+        DexResponse,
         ExposureLevelsResponse,
         ExposureSummaryResponse,
+        GexResponse,
         MaxPainResponse,
         NarrativeResponse,
+        OptionQuoteResponse,
         PricingGreeksResponse,
+        StockQuoteResponse,
         StockSummaryResponse,
+        SurfaceResponse,
+        VexResponse,
+        VolatilityResponse,
         VrpResponse,
         ZeroDteResponse,
     )
@@ -105,7 +114,7 @@ class FlashAlpha:
 
     # ── Market Data ─────────────────────────────────────────────────
 
-    def stock_quote(self, ticker: str) -> dict:
+    def stock_quote(self, ticker: str) -> StockQuoteResponse:
         """Live stock quote (bid/ask/mid/last)."""
         return self._get(f"/stockquote/{_seg(ticker)}")
 
@@ -116,8 +125,13 @@ class FlashAlpha:
         expiry: str | None = None,
         strike: float | None = None,
         type: str | None = None,
-    ) -> dict | list:
-        """Option quotes with greeks. Requires Growth+."""
+    ) -> OptionQuoteResponse | list[OptionQuoteResponse]:
+        """Option quotes with greeks. Requires Growth+.
+
+        Returns a single ``OptionQuoteResponse`` when the request fully
+        specifies one contract (all of ``expiry``, ``strike``, ``type``);
+        otherwise returns a list of ``OptionQuoteResponse``.
+        """
         params: dict[str, Any] = {}
         if expiry:
             params["expiry"] = expiry
@@ -127,7 +141,7 @@ class FlashAlpha:
             params["type"] = type
         return self._get(f"/optionquote/{_seg(ticker)}", params or None)
 
-    def surface(self, symbol: str) -> dict:
+    def surface(self, symbol: str) -> SurfaceResponse:
         """Volatility surface grid (public, no auth required)."""
         return self._get(f"/v1/surface/{_seg(symbol)}")
 
@@ -168,7 +182,7 @@ class FlashAlpha:
 
     # ── Exposure Analytics ──────────────────────────────────────────
 
-    def gex(self, symbol: str, *, expiration: str | None = None, min_oi: int | None = None) -> dict:
+    def gex(self, symbol: str, *, expiration: str | None = None, min_oi: int | None = None) -> GexResponse:
         """Gamma exposure by strike."""
         params: dict[str, Any] = {}
         if expiration:
@@ -177,21 +191,21 @@ class FlashAlpha:
             params["min_oi"] = min_oi
         return self._get(f"/v1/exposure/gex/{_seg(symbol)}", params or None)
 
-    def dex(self, symbol: str, *, expiration: str | None = None) -> dict:
+    def dex(self, symbol: str, *, expiration: str | None = None) -> DexResponse:
         """Delta exposure by strike."""
         params: dict[str, Any] = {}
         if expiration:
             params["expiration"] = expiration
         return self._get(f"/v1/exposure/dex/{_seg(symbol)}", params or None)
 
-    def vex(self, symbol: str, *, expiration: str | None = None) -> dict:
+    def vex(self, symbol: str, *, expiration: str | None = None) -> VexResponse:
         """Vanna exposure by strike."""
         params: dict[str, Any] = {}
         if expiration:
             params["expiration"] = expiration
         return self._get(f"/v1/exposure/vex/{_seg(symbol)}", params or None)
 
-    def chex(self, symbol: str, *, expiration: str | None = None) -> dict:
+    def chex(self, symbol: str, *, expiration: str | None = None) -> ChexResponse:
         """Charm exposure by strike."""
         params: dict[str, Any] = {}
         if expiration:
@@ -300,11 +314,11 @@ class FlashAlpha:
 
     # ── Volatility Analytics ────────────────────────────────────────
 
-    def volatility(self, symbol: str) -> dict:
+    def volatility(self, symbol: str) -> VolatilityResponse:
         """Comprehensive volatility analysis. Requires Growth+."""
         return self._get(f"/v1/volatility/{_seg(symbol)}")
 
-    def adv_volatility(self, symbol: str) -> dict:
+    def adv_volatility(self, symbol: str) -> AdvVolatilityResponse:
         """Advanced volatility analytics: SVI parameters, variance surface, arbitrage detection, greeks surfaces, variance swap. Requires Alpha+."""
         return self._get(f"/v1/adv_volatility/{_seg(symbol)}")
 
