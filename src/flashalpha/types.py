@@ -13,7 +13,7 @@ market closed, etc.). Treat the typed shape as a *hint*, not a guarantee —
 unknown fields added by the API in future revisions will still pass through.
 """
 
-from typing import List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 
 class ZeroDteRegime(TypedDict, total=False):
@@ -2384,3 +2384,260 @@ class StockQuoteResponse(TypedDict, total=False):
     lastPrice: Optional[float]
     # ET wall-clock timestamp of the ``lastPrice`` print. Camel-cased.
     lastUpdate: Optional[str]
+
+
+# ─── Pricing IV ──────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/pricing/iv`` (Free+, live-only).
+#
+# Inverts the BSM pricer to recover implied volatility from a market price.
+# Echoes the requested inputs alongside the solved IV.
+
+
+class PricingIvInputs(TypedDict, total=False):
+    """Inputs echoed from the implied-vol request.
+
+    Useful for downstream callers that need to keep the original request
+    parameters paired with the response without reconstructing them.
+    """
+
+    spot: Optional[float]
+    strike: Optional[float]
+    # Days to expiry (calendar days, fractional allowed).
+    dte: Optional[float]
+    # Market price the IV was solved against.
+    price: Optional[float]
+    # ``"call"`` or ``"put"``.
+    type: Optional[Literal["call", "put"]]
+    # Risk-free rate (decimal, e.g. 0.0425 for 4.25%).
+    risk_free_rate: Optional[float]
+    # Continuous dividend yield (decimal).
+    dividend_yield: Optional[float]
+
+
+class PricingIvResponse(TypedDict, total=False):
+    """Implied-volatility response from ``GET /v1/pricing/iv``.
+
+    Returns the IV that recovers the supplied market ``price`` under BSM,
+    as a decimal (``implied_volatility``) and as a percentage
+    (``implied_volatility_pct``). Free+ on live; not available on historical.
+    """
+
+    inputs: PricingIvInputs
+    # Solved implied volatility as a decimal (e.g. 0.185 = 18.5%).
+    implied_volatility: Optional[float]
+    # Same number expressed as a percentage (e.g. 18.5).
+    implied_volatility_pct: Optional[float]
+
+
+# ─── Pricing Kelly ───────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/pricing/kelly`` (Growth+, live-only).
+#
+# Computes the Kelly-optimal sizing fraction for a single option position
+# along with the supporting probability/return analysis. Returns three
+# nested blocks (inputs, sizing, analysis) and a free-form recommendation.
+
+
+class PricingKellyInputs(TypedDict, total=False):
+    """Inputs echoed from the Kelly sizing request."""
+
+    spot: Optional[float]
+    strike: Optional[float]
+    # Days to expiry (calendar days, fractional allowed).
+    dte: Optional[float]
+    # Volatility used for the BSM pricing (decimal, e.g. 0.18).
+    sigma: Optional[float]
+    # Premium paid per contract (dollars).
+    premium: Optional[float]
+    # Drift / expected return assumption used for the probability calc.
+    mu: Optional[float]
+    type: Optional[Literal["call", "put"]]
+    risk_free_rate: Optional[float]
+    dividend_yield: Optional[float]
+
+
+class PricingKellySizing(TypedDict, total=False):
+    """Kelly-optimal sizing fractions.
+
+    ``kelly_fraction`` is the canonical Kelly fraction (``edge / variance``)
+    expressed as a fraction of bankroll. ``half_kelly`` and ``quarter_kelly``
+    are the standard de-risked variants (more popular in practice — full
+    Kelly's drawdown profile is rough). The ``_pct`` variants are the same
+    numbers in percentage points.
+    """
+
+    kelly_fraction: Optional[float]
+    half_kelly: Optional[float]
+    quarter_kelly: Optional[float]
+    kelly_pct: Optional[float]
+    half_kelly_pct: Optional[float]
+
+
+class PricingKellyAnalysis(TypedDict, total=False):
+    """Underlying probability / return analysis behind the Kelly sizing.
+
+    All ``probability_*`` fields are decimals in ``[0, 1]``; the ``_pct``
+    variants are the same numbers in percentage points.
+    """
+
+    # Expected ROI per contract (decimal, e.g. 0.45 = +45%).
+    expected_roi: Optional[float]
+    expected_roi_pct: Optional[float]
+    # Expected dollar payoff per contract under the drift assumption.
+    expected_payoff: Optional[float]
+    # P(payoff > premium) — probability of finishing in profit.
+    probability_of_profit: Optional[float]
+    probability_of_profit_pct: Optional[float]
+    # P(spot > strike at expiry) for calls, < strike for puts.
+    probability_itm: Optional[float]
+    probability_itm_pct: Optional[float]
+    # Maximum loss per contract (= premium for long options).
+    max_loss: Optional[float]
+    # Underlying price at which P/L = 0 at expiry.
+    breakeven: Optional[float]
+    # Expected log-growth rate of the bankroll under the Kelly fraction.
+    expected_growth_rate: Optional[float]
+
+
+class PricingKellyResponse(TypedDict, total=False):
+    """Full response from ``GET /v1/pricing/kelly`` (Growth+, live-only).
+
+    Bundles the echoed inputs, the Kelly sizing block, the supporting
+    probability/return analysis, and a free-form ``recommendation`` string
+    summarising the result for end-user display.
+    """
+
+    inputs: PricingKellyInputs
+    sizing: PricingKellySizing
+    analysis: PricingKellyAnalysis
+    # Plain-English summary — safe to surface verbatim.
+    recommendation: Optional[str]
+
+
+# ─── Account / Reference / System ────────────────────────────────────────────
+#
+# Typed models for the small endpoints that don't fit anywhere else:
+#   - ``GET /v1/account``      — quota & plan
+#   - ``GET /v1/tickers``      — list of available tickers
+#   - ``GET /v1/symbols``      — symbols with live data
+#   - ``GET /v1/options/{t}``  — option-chain metadata (expirations + strikes)
+#   - ``GET /health``          — health check (public)
+
+
+class AccountResponse(TypedDict, total=False):
+    """Account info & quota from ``GET /v1/account``.
+
+    Returns the caller's plan tier, the day's request quota, how much has
+    been consumed, and when the counter resets. ``daily_limit``, ``usage_today``,
+    and ``remaining`` are integers; ``resets_at`` is an ISO timestamp.
+    """
+
+    user_id: Optional[str]
+    email: Optional[str]
+    # Plan tier (e.g. ``"free"``, ``"basic"``, ``"growth"``, ``"alpha"``).
+    plan: Optional[str]
+    daily_limit: Optional[int]
+    usage_today: Optional[int]
+    remaining: Optional[int]
+    # ISO timestamp at which ``usage_today`` resets to zero.
+    resets_at: Optional[str]
+
+
+class TickersResponse(TypedDict, total=False):
+    """List of available stock tickers from ``GET /v1/tickers``."""
+
+    tickers: List[str]
+    count: Optional[int]
+
+
+class SymbolsResponse(TypedDict, total=False):
+    """Currently queried symbols with live data from ``GET /v1/symbols``."""
+
+    symbols: List[str]
+    count: Optional[int]
+    # Free-form note from the server (e.g. coverage caveats).
+    note: Optional[str]
+    # ISO timestamp of the last refresh of the symbol list.
+    last_updated: Optional[str]
+
+
+class OptionsMetaExpiration(TypedDict, total=False):
+    """One per-expiry row of the option-chain metadata.
+
+    ``strikes`` is the list of available strikes for this expiry.
+    """
+
+    # ``"yyyy-MM-dd"`` of the expiry.
+    expiration: Optional[str]
+    strikes: List[float]
+
+
+class OptionsMetaResponse(TypedDict, total=False):
+    """Option-chain metadata from ``GET /v1/options/{ticker}``.
+
+    Returns the list of expirations and the strikes available at each
+    expiry. Use this to discover the chain shape before calling option-quote
+    or pricing endpoints.
+    """
+
+    symbol: Optional[str]
+    expirations: List[OptionsMetaExpiration]
+    expiration_count: Optional[int]
+    total_contracts: Optional[int]
+
+
+class HealthResponse(TypedDict, total=False):
+    """Public health-check response from ``GET /health``."""
+
+    status: Optional[str]
+
+
+# ─── Screener ────────────────────────────────────────────────────────────────
+#
+# Typed model for ``POST /v1/screener``.
+#
+# Lightweight envelope: a ``meta`` block describing the query bounds and a
+# ``data`` list of result rows. Rows are intentionally untyped — ``select``
+# and ``formulas`` make the row shape user-controlled, so the canonical type
+# is ``List[Dict[str, Any]]``. Read row fields with ordinary dict access;
+# the meta block tells you ``returned_count`` / ``total_count`` / ``tier``.
+
+
+class ScreenerMeta(TypedDict, total=False):
+    """Query metadata returned with every screener response.
+
+    Reports the universe size, the total number of matching rows BEFORE
+    pagination, and the number returned in the ``data`` list. ``tier`` echoes
+    the calling account's tier (drives universe size and row caps).
+    """
+
+    # Total matching rows before pagination.
+    total_count: Optional[int]
+    # Number of rows in the ``data`` list (after limit/offset).
+    returned_count: Optional[int]
+    # Number of symbols in the calling account's universe.
+    universe_size: Optional[int]
+    # Pagination offset of this page.
+    offset: Optional[int]
+    # Effective row cap for this request.
+    limit: Optional[int]
+    # Tier label (``"growth"`` | ``"alpha"`` etc.).
+    tier: Optional[str]
+    # ET wall-clock timestamp the result set was computed at.
+    as_of: Optional[str]
+
+
+class ScreenerResponse(TypedDict, total=False):
+    """Screener envelope from ``POST /v1/screener``.
+
+    The ``data`` list rows are intentionally typed as ``List[Dict[str, Any]]``
+    because the row shape is user-controlled — ``select`` chooses which fields
+    are returned and ``formulas`` (Alpha+) adds computed columns. The canonical
+    field set is documented separately on the API reference. Read fields with
+    ordinary dict access (``row["symbol"]``, ``row["price"]``, ...).
+    """
+
+    meta: ScreenerMeta
+    # Rows are select-dependent; left untyped. Read with ``row["symbol"]`` etc.
+    data: List[Dict[str, Any]]

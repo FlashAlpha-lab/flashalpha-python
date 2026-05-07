@@ -18,19 +18,27 @@ from .exceptions import (
 
 if TYPE_CHECKING:
     from .types import (
+        AccountResponse,
         AdvVolatilityResponse,
         ChexResponse,
         DexResponse,
         ExposureLevelsResponse,
         ExposureSummaryResponse,
         GexResponse,
+        HealthResponse,
         MaxPainResponse,
         NarrativeResponse,
         OptionQuoteResponse,
+        OptionsMetaResponse,
         PricingGreeksResponse,
+        PricingIvResponse,
+        PricingKellyResponse,
+        ScreenerResponse,
         StockQuoteResponse,
         StockSummaryResponse,
         SurfaceResponse,
+        SymbolsResponse,
+        TickersResponse,
         VexResponse,
         VolatilityResponse,
         VrpResponse,
@@ -274,7 +282,7 @@ class FlashAlpha:
         type: str = "call",
         r: float | None = None,
         q: float | None = None,
-    ) -> dict:
+    ) -> PricingIvResponse:
         """Implied volatility from market price."""
         params: dict[str, Any] = {"spot": spot, "strike": strike, "dte": dte, "price": price, "type": type}
         if r is not None:
@@ -295,7 +303,7 @@ class FlashAlpha:
         type: str = "call",
         r: float | None = None,
         q: float | None = None,
-    ) -> dict:
+    ) -> PricingKellyResponse:
         """Kelly criterion optimal position sizing. Requires Growth+."""
         params: dict[str, Any] = {
             "spot": spot,
@@ -324,15 +332,15 @@ class FlashAlpha:
 
     # ── Reference Data ──────────────────────────────────────────────
 
-    def tickers(self) -> dict:
+    def tickers(self) -> TickersResponse:
         """All available stock tickers."""
         return self._get("/v1/tickers")
 
-    def options(self, ticker: str) -> dict:
+    def options(self, ticker: str) -> OptionsMetaResponse:
         """Option chain metadata (expirations + strikes)."""
         return self._get(f"/v1/options/{_seg(ticker)}")
 
-    def symbols(self) -> dict:
+    def symbols(self) -> SymbolsResponse:
         """Currently queried symbols with live data."""
         return self._get("/v1/symbols")
 
@@ -393,7 +401,7 @@ class FlashAlpha:
         formulas: list[dict[str, str]] | None = None,
         limit: int | None = None,
         offset: int | None = None,
-    ) -> dict:
+    ) -> ScreenerResponse:
         """Live options screener — filter/rank symbols by gamma exposure, VRP,
         volatility, greeks, and more.
 
@@ -462,10 +470,10 @@ class FlashAlpha:
 
     # ── Account & System ────────────────────────────────────────────
 
-    def account(self) -> dict:
+    def account(self) -> AccountResponse:
         """Account info and quota."""
         return self._get("/v1/account")
 
-    def health(self) -> dict:
+    def health(self) -> HealthResponse:
         """Health check (public, no auth required)."""
         return self._get("/health")

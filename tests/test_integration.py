@@ -9,18 +9,34 @@ import os
 import pytest
 
 from flashalpha import (
+    AdvVolArbitrageFlag,
+    AdvVolForwardPrice,
+    AdvVolGreekSurface,
+    AdvVolGreeksSurfaces,
+    AdvVolSviParam,
+    AdvVolTotalVarianceSurface,
+    AdvVolVarianceSwap,
+    AdvVolatilityResponse,
+    ChexResponse,
+    ChexStrikeRow,
+    DexResponse,
+    DexStrikeRow,
     ExposureLevelsResponse,
     FlashAlpha,
+    GexResponse,
+    GexStrikeRow,
     NarrativeData,
     NarrativeOiChange,
     NarrativeResponse,
     NotFoundError,
+    OptionQuoteResponse,
     PricingAdditional,
     PricingFirstOrder,
     PricingGreeksResponse,
     PricingInputs,
     PricingSecondOrder,
     PricingThirdOrder,
+    StockQuoteResponse,
     StockSummaryExposure,
     StockSummaryFearAndGreed,
     StockSummaryHedgingEstimate,
@@ -37,6 +53,24 @@ from flashalpha import (
     StockSummaryVixTermStructure,
     StockSummaryVolatility,
     StockSummaryZeroDte,
+    SurfaceResponse,
+    TierRestrictedError,
+    VexResponse,
+    VexStrikeRow,
+    VolatilityGexByDte,
+    VolatilityHedgingScenario,
+    VolatilityIvDispersion,
+    VolatilityIvRvSpreads,
+    VolatilityLiquidity,
+    VolatilityOiConcentration,
+    VolatilityPcByExpiry,
+    VolatilityPcByMoneyness,
+    VolatilityPutCallProfile,
+    VolatilityRealizedVol,
+    VolatilityResponse,
+    VolatilitySkewProfile,
+    VolatilityTermStructure,
+    VolatilityThetaByDte,
 )
 
 API_KEY = os.environ.get("FLASHALPHA_API_KEY", "")
@@ -1074,6 +1108,18 @@ _WALKABLE_TYPED_DICTS = {
     PricingSecondOrder,
     PricingThirdOrder,
     PricingAdditional,
+    # ── rc.9 nested TypedDicts (Volatility / AdvVolatility) ──
+    VolatilityRealizedVol,
+    VolatilityIvRvSpreads,
+    VolatilityTermStructure,
+    VolatilityIvDispersion,
+    VolatilityPutCallProfile,
+    VolatilityPcByMoneyness,
+    VolatilityOiConcentration,
+    VolatilityLiquidity,
+    AdvVolTotalVarianceSurface,
+    AdvVolGreeksSurfaces,
+    AdvVolGreekSurface,
 }
 
 
@@ -1247,3 +1293,255 @@ def test_pricing_greeks_every_field_declared_in_typeddict(fa):
     if result["theoretical_price"] > 0:
         assert additional["lambda"] is not None, "additional.lambda is None despite price > 0"
     # else: lambda may legitimately be None — don't assert.
+
+
+# ── Field-walk coverage tests for the rc.9 POCOs ────────────────────
+#
+# Same discipline as the rc.4 / rc.7 helpers above: walk every field
+# declared on each rc.9 response TypedDict and assert the live response
+# carries it. Recurse into nested TypedDicts that the response actually
+# nests (registered in _WALKABLE_TYPED_DICTS above). Lists of TypedDicts
+# are validated elementwise on the first row when non-empty.
+
+
+def test_volatility_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``VolatilityResponse`` (and the walkable nested
+    blocks ``realized_vol``, ``iv_rv_spreads``, ``term_structure``,
+    ``iv_dispersion``, ``put_call_profile``, ``oi_concentration``,
+    ``liquidity``) must be present and non-None on a SPY snapshot.
+
+    Volatility is Growth+; skip on tier_restricted rather than fail.
+    List-of-TypedDict blocks (``skew_profiles``, ``gex_by_dte``,
+    ``theta_by_dte``, ``hedging_scenarios``) are validated elementwise on
+    the first row when non-empty.
+    """
+    try:
+        result = fa.volatility("SPY")
+    except TierRestrictedError as exc:
+        pytest.skip(f"volatility requires Growth+: {exc}")
+
+    # Top-level fields on VolatilityResponse must all be present.
+    for key in VolatilityResponse.__annotations__:
+        assert key in result, f"volatility.{key} missing from response"
+
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+    assert result["underlying_price"] is not None
+    assert result["market_open"] is not None
+    assert isinstance(result["atm_iv"], (int, float))
+
+    # Walk every nested block.
+    _assert_all_keys_populated("realized_vol", VolatilityRealizedVol, result["realized_vol"])
+    _assert_all_keys_populated("iv_rv_spreads", VolatilityIvRvSpreads, result["iv_rv_spreads"])
+    _assert_all_keys_populated("term_structure", VolatilityTermStructure, result["term_structure"])
+    _assert_all_keys_populated("iv_dispersion", VolatilityIvDispersion, result["iv_dispersion"])
+    _assert_all_keys_populated("put_call_profile", VolatilityPutCallProfile, result["put_call_profile"])
+    _assert_all_keys_populated("oi_concentration", VolatilityOiConcentration, result["oi_concentration"])
+    _assert_all_keys_populated("liquidity", VolatilityLiquidity, result["liquidity"])
+
+    # List-of-TypedDict blocks: validate first row when non-empty.
+    skew = result["skew_profiles"]
+    assert isinstance(skew, list)
+    if skew:
+        _assert_all_keys_populated("skew_profiles[0]", VolatilitySkewProfile, skew[0])
+
+    gex_by_dte = result["gex_by_dte"]
+    assert isinstance(gex_by_dte, list)
+    if gex_by_dte:
+        _assert_all_keys_populated("gex_by_dte[0]", VolatilityGexByDte, gex_by_dte[0])
+
+    theta_by_dte = result["theta_by_dte"]
+    assert isinstance(theta_by_dte, list)
+    if theta_by_dte:
+        _assert_all_keys_populated("theta_by_dte[0]", VolatilityThetaByDte, theta_by_dte[0])
+
+    hedging = result["hedging_scenarios"]
+    assert isinstance(hedging, list)
+    if hedging:
+        _assert_all_keys_populated("hedging_scenarios[0]", VolatilityHedgingScenario, hedging[0])
+
+    # put_call_profile.by_expiry is List[VolatilityPcByExpiry].
+    pc_by_expiry = result["put_call_profile"]["by_expiry"]
+    assert isinstance(pc_by_expiry, list)
+    if pc_by_expiry:
+        _assert_all_keys_populated(
+            "put_call_profile.by_expiry[0]", VolatilityPcByExpiry, pc_by_expiry[0]
+        )
+
+
+def test_adv_volatility_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``AdvVolatilityResponse`` (and walkable nested
+    surfaces) must be present on a SPY snapshot.
+
+    Alpha+ only — ``pytest.skip`` on ``TierRestrictedError``.
+    """
+    try:
+        result = fa.adv_volatility("SPY")
+    except TierRestrictedError as exc:
+        pytest.skip(f"adv_volatility requires Alpha+: {exc}")
+
+    for key in AdvVolatilityResponse.__annotations__:
+        assert key in result, f"adv_volatility.{key} missing from response"
+
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+
+    # Walk the two nested object blocks.
+    _assert_all_keys_populated(
+        "total_variance_surface", AdvVolTotalVarianceSurface, result["total_variance_surface"]
+    )
+    _assert_all_keys_populated(
+        "greeks_surfaces", AdvVolGreeksSurfaces, result["greeks_surfaces"]
+    )
+
+    # List-of-TypedDict blocks: validate first row when non-empty.
+    svi = result["svi_parameters"]
+    assert isinstance(svi, list)
+    if svi:
+        _assert_all_keys_populated("svi_parameters[0]", AdvVolSviParam, svi[0])
+
+    fwds = result["forward_prices"]
+    assert isinstance(fwds, list)
+    if fwds:
+        _assert_all_keys_populated("forward_prices[0]", AdvVolForwardPrice, fwds[0])
+
+    # arbitrage_flags is often empty (clean surface) — only walk if populated.
+    arb = result["arbitrage_flags"]
+    assert isinstance(arb, list)
+    if arb:
+        _assert_all_keys_populated("arbitrage_flags[0]", AdvVolArbitrageFlag, arb[0])
+
+    var_swaps = result["variance_swap_fair_values"]
+    assert isinstance(var_swaps, list)
+    if var_swaps:
+        _assert_all_keys_populated("variance_swap_fair_values[0]", AdvVolVarianceSwap, var_swaps[0])
+
+
+def test_surface_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``SurfaceResponse`` must be present on a SPY
+    snapshot. Surface is public — no tier gating to handle.
+    """
+    result = fa.surface("SPY")
+
+    for key in SurfaceResponse.__annotations__:
+        assert key in result, f"surface.{key} missing from response"
+
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+    assert result["spot"] is not None
+    assert isinstance(result["grid_size"], int) and result["grid_size"] > 0
+    assert isinstance(result["tenors"], list) and len(result["tenors"]) > 0
+    assert isinstance(result["moneyness"], list) and len(result["moneyness"]) > 0
+    assert isinstance(result["iv"], list) and len(result["iv"]) > 0
+    assert isinstance(result["iv"][0], list) and len(result["iv"][0]) > 0
+    assert isinstance(result["slices_used"], list)
+
+
+def test_gex_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``GexResponse`` (and ``GexStrikeRow`` per row)
+    must be present on a SPY response.
+    """
+    result = fa.gex("SPY")
+
+    for key in GexResponse.__annotations__:
+        assert key in result, f"gex.{key} missing from response"
+
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+    assert result["underlying_price"] is not None
+    strikes = result["strikes"]
+    assert isinstance(strikes, list) and len(strikes) > 0
+    # Walk the first row — every declared field on GexStrikeRow must exist.
+    row = strikes[0]
+    for key in GexStrikeRow.__annotations__:
+        assert key in row, f"gex.strikes[0].{key} missing"
+
+
+def test_dex_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``DexResponse`` must be present on SPY."""
+    result = fa.dex("SPY")
+    for key in DexResponse.__annotations__:
+        assert key in result, f"dex.{key} missing from response"
+    assert result["symbol"] == "SPY"
+    strikes = result["strikes"]
+    assert isinstance(strikes, list) and len(strikes) > 0
+    for key in DexStrikeRow.__annotations__:
+        assert key in strikes[0], f"dex.strikes[0].{key} missing"
+
+
+def test_vex_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``VexResponse`` must be present on SPY."""
+    result = fa.vex("SPY")
+    for key in VexResponse.__annotations__:
+        assert key in result, f"vex.{key} missing from response"
+    assert result["symbol"] == "SPY"
+    strikes = result["strikes"]
+    assert isinstance(strikes, list) and len(strikes) > 0
+    for key in VexStrikeRow.__annotations__:
+        assert key in strikes[0], f"vex.strikes[0].{key} missing"
+
+
+def test_chex_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``ChexResponse`` must be present on SPY."""
+    result = fa.chex("SPY")
+    for key in ChexResponse.__annotations__:
+        assert key in result, f"chex.{key} missing from response"
+    assert result["symbol"] == "SPY"
+    strikes = result["strikes"]
+    assert isinstance(strikes, list) and len(strikes) > 0
+    for key in ChexStrikeRow.__annotations__:
+        assert key in strikes[0], f"chex.strikes[0].{key} missing"
+
+
+def test_option_quote_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``OptionQuoteResponse`` must be present on a
+    fully-specified single-contract request.
+
+    Single-contract response is the strictest shape — when the request fully
+    specifies expiry+strike+type the API returns one ``OptionQuoteResponse``,
+    not a list. Growth+; skip on ``TierRestrictedError``.
+
+    Discovers a valid (expiry, strike) via the chain-metadata endpoint to
+    avoid a brittle hard-coded contract that drifts off the chain.
+    """
+    try:
+        # Pick a real contract from the chain so this doesn't break with strike rolls.
+        chain = fa.options("SPY")
+        if not chain.get("expirations"):
+            pytest.skip("no expirations available on SPY chain")
+        first_exp = chain["expirations"][0]
+        expiry = first_exp["expiration"]
+        strikes_list = first_exp["strikes"]
+        if not strikes_list:
+            pytest.skip("no strikes on first expiry")
+        # Pick a strike near the middle of the list (likely near ATM).
+        strike = strikes_list[len(strikes_list) // 2]
+        result = fa.option_quote("SPY", expiry=expiry, strike=strike, type="call")
+    except TierRestrictedError as exc:
+        pytest.skip(f"option_quote requires Growth+: {exc}")
+
+    # When all three filters are set, server returns the single shape.
+    if isinstance(result, list):
+        # Defensive: degrade to first element if server wraps anyway.
+        assert len(result) > 0, "option_quote returned empty list"
+        result = result[0]
+    assert isinstance(result, dict)
+
+    for key in OptionQuoteResponse.__annotations__:
+        assert key in result, f"option_quote.{key} missing from response"
+
+
+def test_stock_quote_every_field_declared_in_typeddict(fa):
+    """Every key declared on ``StockQuoteResponse`` must be present on SPY."""
+    result = fa.stock_quote("SPY")
+
+    for key in StockQuoteResponse.__annotations__:
+        assert key in result, f"stock_quote.{key} missing from response"
+
+    assert result["ticker"] == "SPY"
+    assert isinstance(result["bid"], (int, float))
+    assert isinstance(result["ask"], (int, float))
+    assert isinstance(result["mid"], (int, float))
+    # Camel-cased on the wire, preserved verbatim on the typed dict.
+    assert "lastPrice" in result
+    assert "lastUpdate" in result
