@@ -1,8 +1,21 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 - 2026-05-15
 
 ### Added
+- **Live Flow API tier** — typed models + client methods + LLM-discoverable docs
+  for all 22 `/v1/flow/*` endpoints (analytics: levels, pin-risk, summary, oi,
+  gex, dex, dealer-risk, live; raw flow: option/stock recent, summary, blocks,
+  history, cumulative, leaderboards, outliers). Flow gex/dex reuse the existing
+  `GexStrikeRow`/`DexStrikeRow` types.
+- Per-endpoint live integration tests for every Flow endpoint.
+
+### Changed / Breaking
+- `SurfaceResponse.slices_used` is now `int` (a slice count), was `List[str]` —
+  corrected to match the API.
+- Removed `exposure_history()` — the `/v1/exposure/history` endpoint does not exist.
+
+### Added (prior 0.4.0-rc cycle)
 - `docs/api.md` — full endpoint reference, URL-prefix table, response schemas, and sample JSON for every endpoint
 - 17 integration regression tests (`tests/test_integration.py`) guarding against response-shape and URL-pattern regressions reported by Alpha users:
   - Nested VRP response (`vrp.z_score`, `gex_conditioned.harvest_score`, `regime.net_gex`, `directional.*`)

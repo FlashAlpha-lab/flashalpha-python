@@ -5,7 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/FlashAlpha-lab/flashalpha-python/actions/workflows/ci.yml/badge.svg)](https://github.com/FlashAlpha-lab/flashalpha-python/actions/workflows/ci.yml)
 
-**Python client for the FlashAlpha options analytics API.** Access a **live options screener** (filter/rank symbols by gamma exposure, VRP, IV, greeks, harvest scores, and custom formulas), real-time gamma exposure (GEX), delta exposure (DEX), vanna exposure (VEX), charm exposure (CHEX), 0DTE analytics, Black-Scholes greeks, implied volatility, volatility surfaces, dealer positioning, Kelly criterion sizing, and more — all from Python.
+Python client for the [FlashAlpha options analytics API](https://flashalpha.com). Access a **live options screener** (filter/rank symbols by gamma exposure, VRP, IV, greeks, harvest scores, and custom formulas), real-time gamma exposure (GEX), delta exposure (DEX), vanna exposure (VEX), charm exposure (CHEX), 0DTE analytics, Black-Scholes greeks, implied volatility, volatility surfaces, dealer positioning, Kelly criterion sizing, and more — all from Python.
+
+> 🔑 **[Get a free API key at flashalpha.com →](https://flashalpha.com)** · 📚 [API documentation](https://flashalpha.com/docs) · 💹 [FlashAlpha options analytics API](https://flashalpha.com)
 
 ```bash
 pip install flashalpha
