@@ -221,14 +221,6 @@ def test_zero_dte_with_strike_range(fa):
     assert "strike_range=0.05" in responses.calls[0].request.url
 
 
-@responses.activate
-def test_exposure_history(fa):
-    payload = {"symbol": "SPY", "days": 7, "count": 5, "snapshots": []}
-    responses.get(f"{BASE}/v1/exposure/history/SPY", json=payload)
-    result = fa.exposure_history("SPY", days=7)
-    assert result["days"] == 7
-
-
 # ── Pricing ─────────────────────────────────────────────────────────
 
 

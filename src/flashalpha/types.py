@@ -2149,9 +2149,8 @@ class SurfaceResponse(TypedDict, total=False):
     # The IV grid, annualised %. Indexed ``iv[i][j]`` with
     # ``i`` = tenor index, ``j`` = moneyness index.
     iv: List[List[float]]
-    # Expiry slices used to build the fit
-    # (e.g. ``["2026-05-16", "2026-06-20", ...]``).
-    slices_used: List[str]
+    # Count of expiry slices that contributed to the surface fit.
+    slices_used: int
 
 
 # ─── Exposure (GEX/DEX/VEX/CHEX) ─────────────────────────────────────────────
@@ -2649,3 +2648,812 @@ class ScreenerResponse(TypedDict, total=False):
     meta: ScreenerMeta
     # Rows are select-dependent; left untyped. Read with ``row["symbol"]`` etc.
     data: List[Dict[str, Any]]
+
+
+# ─── Flow (live, simulation-aware) ───────────────────────────────────────────
+#
+# Typed models for the ``/v1/flow/*`` surface. Two families:
+#
+#   * **Analytics** (``/v1/flow/{levels,pin-risk,summary,oi,gex,dex,
+#     dealer-risk,live}/{symbol}``) — *simulation-aware* exposure analytics
+#     that fold the live intraday trade tape into the settled snapshot, so
+#     gamma flip / walls / GEX reflect *today's* flow, not yesterday's close.
+#     Wire shape is snake_case. Optional ``expiry=YYYY-MM-DD`` slices to one
+#     expiration cycle (OPEX- or 0DTE-only views). Requires the Alpha plan.
+#
+#   * **Raw flow data** (``/v1/flow/options/*``, ``/v1/flow/stocks/*``) — the
+#     underlying trade tape: per-trade prints, blocks, per-minute history
+#     buckets, cumulative net-flow series, and cross-symbol leaderboards /
+#     outliers. These are proxied verbatim from the ingest tier, so the wire
+#     keys are **camelCase** (preserved here exactly, NOT pythonised) and
+#     timestamps are ISO-8601 UTC strings. Requires the Alpha plan.
+#
+# Flow ``gex``/``dex`` per-strike rows are the *same* wire shape as the
+# settled ``/v1/exposure/gex``/``/dex`` endpoints, so they reuse
+# ``GexStrikeRow`` / ``DexStrikeRow`` rather than duplicating the schema.
+
+
+class FlowLevelsResponse(TypedDict, total=False):
+    """Live key levels from ``GET /v1/flow/levels/{symbol}``.
+
+    Gamma flip, call/put walls and max-pain recomputed against the
+    *live* (intraday-flow-adjusted) book rather than the settled
+    snapshot. Each level is ``None`` when it can't be located (e.g. no
+    sign change in net gamma across the chain). Requires the Alpha plan.
+    """
+
+    symbol: str
+    as_of: str
+    underlying_price: Optional[float]
+    # Expiration filter echoed back (``YYYY-MM-DD``), or ``None`` when
+    # the whole chain was used.
+    expiry: Optional[str]
+    # Spot where live net dealer gamma crosses zero. ``None`` if no flip.
+    live_gamma_flip: Optional[float]
+    # Strike of the largest live call-gamma concentration (upside magnet).
+    live_call_wall: Optional[float]
+    # Strike of the largest live put-gamma concentration (downside magnet).
+    live_put_wall: Optional[float]
+    # Live max-pain strike (where the most option value expires worthless).
+    live_max_pain: Optional[float]
+
+
+class FlowPinRiskBreakdown(TypedDict, total=False):
+    """Component scores (0–100) behind the ``live_pin_risk`` headline."""
+
+    # Open-interest concentration around the magnet strike.
+    oi_score: int
+    # How close spot is to the magnet strike.
+    proximity_score: int
+    # Time-to-close weighting (pin pressure rises into the cash close).
+    time_score: int
+    # Dealer-gamma intensity at the magnet strike.
+    gamma_score: int
+
+
+class FlowPinRiskResponse(TypedDict, total=False):
+    """0DTE pin-risk score from ``GET /v1/flow/pin-risk/{symbol}``.
+
+    ``live_pin_risk`` is a 0–100 composite of the four ``breakdown``
+    components. ``magnet_strike`` is the strike spot is most likely
+    pinned toward into the close. Requires the Alpha plan.
+    """
+
+    symbol: str
+    as_of: str
+    underlying_price: Optional[float]
+    expiry: Optional[str]
+    # Composite 0–100 pin-risk score (higher = stronger pin pull).
+    live_pin_risk: int
+    # Strike acting as the pin magnet (``argmax|net gamma|``). ``None``
+    # when the chain has no dominant strike.
+    magnet_strike: Optional[float]
+    # Signed % distance from spot to the magnet strike.
+    distance_to_magnet_pct: Optional[float]
+    # Hours remaining until the regular-session cash close.
+    time_to_close_hours: Optional[float]
+    breakdown: FlowPinRiskBreakdown
+
+
+class FlowSummaryResponse(TypedDict, total=False):
+    """At-a-glance flow direction from ``GET /v1/flow/summary/{symbol}``.
+
+    Headline read on whether today's tape has shifted the dealer book.
+    Requires the Alpha plan.
+    """
+
+    symbol: str
+    as_of: str
+    underlying_price: Optional[float]
+    expiry: Optional[str]
+    # Net classified direction of intraday flow
+    # (e.g. ``"bullish"``, ``"bearish"``, ``"neutral"``).
+    flow_direction: str
+    # Net change in simulated open interest since the open (contracts).
+    intraday_oi_delta: int
+    # Contracts that have printed at least one trade today.
+    contracts_with_flow: int
+    # Total contracts tracked for the underlying.
+    contracts_total: int
+    # Live (flow-adjusted) net GEX (dollars per 1% spot move).
+    live_gex: Optional[float]
+    # % shift in net GEX caused by today's flow vs the settled book.
+    # ``None`` when the settled baseline is zero (undefined ratio).
+    flow_gex_pct_shift: Optional[float]
+
+
+class FlowOiResponse(TypedDict, total=False):
+    """Open-interest simulator state from ``GET /v1/flow/oi/{symbol}``.
+
+    The settled (official) OI versus the intraday simulated OI built by
+    folding today's trade tape onto the open. Requires the Alpha plan.
+    Note: this endpoint does **not** return ``underlying_price``.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Timestamp this snapshot was computed for (ISO-8601 UTC).
+    as_of: str
+    # Expiration filter echoed back (``YYYY-MM-DD``), or ``None``.
+    expiry: Optional[str]
+    # Official exchange OI from the settled snapshot (sum across chain).
+    official_oi: int
+    # Intraday simulated OI (official + estimated open/close from tape).
+    simulated_oi: int
+    # ``simulated_oi - official_oi`` (signed).
+    intraday_oi_delta: int
+    # Confidence 0–1 in the intraday OI estimate (trade-tape coverage).
+    oi_delta_confidence: Optional[float]
+    # OI actually used by the live analytics (blended).
+    effective_oi: int
+    # Total contracts tracked for the underlying.
+    contracts_total: int
+    # Contracts that have printed at least one trade today.
+    contracts_with_flow: int
+
+
+class FlowGexResponse(TypedDict, total=False):
+    """Live per-strike GEX from ``GET /v1/flow/gex/{symbol}``.
+
+    Same per-strike shape as ``GET /v1/exposure/gex`` (reuses
+    ``GexStrikeRow``) but computed against the live flow-adjusted book.
+    Requires the Alpha plan.
+    """
+
+    symbol: str
+    as_of: str
+    underlying_price: Optional[float]
+    expiry: Optional[str]
+    # Live net GEX across the chain (dollars per 1% spot move).
+    live_net_gex: Optional[float]
+    # Categorical regime label (e.g. ``"positive"``, ``"negative"``).
+    live_net_gex_label: str
+    # Live gamma-flip spot. ``None`` if no sign change.
+    live_gamma_flip: Optional[float]
+    # Per-strike rows (identical schema to settled GEX). See ``GexStrikeRow``.
+    strikes: List[GexStrikeRow]
+
+
+class FlowDexResponse(TypedDict, total=False):
+    """Live per-strike DEX from ``GET /v1/flow/dex/{symbol}``.
+
+    Same per-strike shape as ``GET /v1/exposure/dex`` (reuses
+    ``DexStrikeRow``) computed against the live book. Requires Alpha.
+    """
+
+    symbol: str
+    as_of: str
+    underlying_price: Optional[float]
+    expiry: Optional[str]
+    # Live net DEX across the chain (dollars).
+    live_net_dex: Optional[float]
+    strikes: List[DexStrikeRow]
+
+
+class FlowDealerRiskResponse(TypedDict, total=False):
+    """Settled-vs-live dealer risk from ``GET /v1/flow/dealer-risk/{symbol}``.
+
+    Side-by-side of the settled snapshot and the live flow-adjusted
+    book, with the dollar adjustment and % shift today's tape produced.
+    Requires the Alpha plan.
+    """
+
+    symbol: str
+    as_of: str
+    underlying_price: Optional[float]
+    expiry: Optional[str]
+    # Net GEX from the settled (prior close) snapshot.
+    settled_net_gex: Optional[float]
+    # Net GEX from the live flow-adjusted book.
+    live_net_gex: Optional[float]
+    # ``live_net_gex - settled_net_gex`` (dollars).
+    flow_gex_adjustment: Optional[float]
+    # % GEX shift from flow. ``None`` when settled baseline is zero.
+    flow_gex_pct_shift: Optional[float]
+    # Net DEX from the settled (prior close) snapshot.
+    settled_net_dex: Optional[float]
+    # Net DEX from the live flow-adjusted book.
+    live_net_dex: Optional[float]
+    # ``live_net_dex - settled_net_dex`` (dollars).
+    flow_dex_adjustment: Optional[float]
+    # % DEX shift from flow. ``None`` when settled baseline is zero.
+    flow_dex_pct_shift: Optional[float]
+    # Absolute delta-weighted contracts traded today (flow magnitude).
+    total_abs_delta_contracts: int
+    # Contracts that have printed at least one trade today.
+    contracts_with_flow: int
+    # Net classified flow direction.
+    flow_direction: str
+    # Plain-English summary of whether flow has materially moved the
+    # dealer book — safe to surface verbatim.
+    description: str
+
+
+class FlowAdjustedDealerRisk(TypedDict, total=False):
+    """Nested dealer-risk block inside ``FlowLiveResponse``.
+
+    Identical to ``FlowDealerRiskResponse`` minus ``contracts_with_flow``
+    (carried on the parent ``live`` envelope instead).
+    """
+
+    # Net GEX from the settled (prior close) snapshot.
+    settled_net_gex: Optional[float]
+    # Net GEX from the live flow-adjusted book.
+    live_net_gex: Optional[float]
+    # ``live_net_gex - settled_net_gex`` (dollars).
+    flow_gex_adjustment: Optional[float]
+    # % GEX shift from flow. ``None`` when settled baseline is zero.
+    flow_gex_pct_shift: Optional[float]
+    # Net DEX from the settled snapshot.
+    settled_net_dex: Optional[float]
+    # Net DEX from the live flow-adjusted book.
+    live_net_dex: Optional[float]
+    # ``live_net_dex - settled_net_dex`` (dollars).
+    flow_dex_adjustment: Optional[float]
+    # % DEX shift from flow. ``None`` when settled baseline is zero.
+    flow_dex_pct_shift: Optional[float]
+    # Absolute delta-weighted contracts traded today (flow magnitude).
+    total_abs_delta_contracts: int
+    # Net classified flow direction.
+    flow_direction: str
+    # Plain-English summary of the shift — safe to surface verbatim.
+    description: str
+
+
+class FlowLiveResponse(TypedDict, total=False):
+    """Everything-at-once bundle from ``GET /v1/flow/live/{symbol}``.
+
+    Convenience aggregate: OI simulator state + live exposure metrics +
+    live levels + pin risk + the nested dealer-risk block, in one call.
+    Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Timestamp this snapshot was computed for (ISO-8601 UTC).
+    as_of: str
+    # Spot mid at ``as_of``.
+    underlying_price: Optional[float]
+    # Expiration filter echoed back (``YYYY-MM-DD``), or ``None``.
+    expiry: Optional[str]
+    # Total contracts tracked for the underlying.
+    contracts: int
+    # Contracts that have printed at least one trade today.
+    contracts_with_flow: int
+    # Official exchange OI from the settled snapshot.
+    official_oi: int
+    # Intraday simulated OI (official + estimated open/close from tape).
+    simulated_oi: int
+    # ``simulated_oi - official_oi`` (signed).
+    intraday_oi_delta: int
+    # Confidence 0–1 in the intraday OI estimate (trade-tape coverage).
+    oi_delta_confidence: Optional[float]
+    # OI actually used by the live analytics (blended).
+    effective_oi: int
+    # Live net GEX (dollars per 1% spot move).
+    live_gex: Optional[float]
+    # Live net DEX (dollars). (Named ``live_gex_delta`` on the wire.)
+    live_gex_delta: Optional[float]
+    # Live gamma-flip spot. ``None`` if no sign change.
+    live_gamma_flip: Optional[float]
+    # Largest live call-gamma concentration strike (upside magnet).
+    live_call_wall: Optional[float]
+    # Largest live put-gamma concentration strike (downside magnet).
+    live_put_wall: Optional[float]
+    # Live max-pain strike (most option value expires worthless).
+    live_max_pain: Optional[float]
+    # Composite 0–100 pin-risk score (higher = stronger pin pull).
+    live_pin_risk: int
+    # Nested settled-vs-live dealer-risk block. See ``FlowAdjustedDealerRisk``.
+    flow_adjusted_dealer_risk: FlowAdjustedDealerRisk
+
+
+# ── Raw flow data (camelCase wire keys, proxied from the ingest tier) ────────
+
+
+class FlowOptionTrade(TypedDict, total=False):
+    """A single option trade print (``trades[]`` element)."""
+
+    # Trade timestamp (ISO-8601 UTC).
+    ts: str
+    # OPRA instrument id of the contract.
+    instrumentId: int
+    # Contract expiration (``YYYY-MM-DD``).
+    expiry: str
+    # Contract strike price.
+    strike: float
+    # ``"C"`` (call) or ``"P"`` (put).
+    right: str
+    # Trade price.
+    price: float
+    # Trade size in contracts.
+    size: int
+    # Trade-side classification vs the NBBO at print
+    # (e.g. ``"buy"``, ``"sell"``, ``"mid"``).
+    side: str
+    # True when the print is at/above the block-size threshold.
+    isBlock: bool
+    # NBBO bid at the moment of the trade.
+    bid: float
+    # NBBO ask at the moment of the trade.
+    ask: float
+
+
+class FlowOptionRecentResponse(TypedDict, total=False):
+    """Recent option trades from ``GET /v1/flow/options/{symbol}/recent``.
+
+    Newest-first trade tape across the whole chain (or one ``expiry``).
+    ``count`` is the number returned (capped by ``limit``);
+    ``totalAvailable`` is the unclamped total. Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Expiration filter echoed back when supplied, else absent.
+    expiry: Optional[str]
+    # Number of trades returned (capped by ``limit``).
+    count: int
+    # Unclamped total trade count available.
+    totalAvailable: int
+    # Newest-first list of trade prints.
+    trades: List[FlowOptionTrade]
+
+
+class FlowOptionSummaryResponse(TypedDict, total=False):
+    """Per-underlying option-flow aggregates from
+    ``GET /v1/flow/options/{symbol}/summary``. Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Expiration filter echoed back when supplied, else absent.
+    expiry: Optional[str]
+    # Distinct contracts that printed at least one trade.
+    contractsWithTrades: int
+    # Total number of trade prints.
+    totalTrades: int
+    # Buy-classified contract volume.
+    buyVolume: int
+    # Sell-classified contract volume.
+    sellVolume: int
+    # Volume classified at the mid (uninformed).
+    midVolume: int
+    # ``buyVolume - sellVolume``.
+    netVolume: int
+    # Largest single trade size.
+    biggestSingleTrade: int
+    # Timestamp of the most recent print; ``None``/absent when no trades.
+    lastTradeUtc: Optional[str]
+
+
+class FlowOptionBlock(TypedDict, total=False):
+    """A single large option print (``blocks[]`` element)."""
+
+    # Trade timestamp (ISO-8601 UTC).
+    ts: str
+    # Contract expiration (``YYYY-MM-DD``).
+    expiry: str
+    # Contract strike price.
+    strike: float
+    # ``"C"`` (call) or ``"P"`` (put).
+    right: str
+    # Trade price.
+    price: float
+    # Trade size in contracts.
+    size: int
+    # Trade-side classification (``"buy"``/``"sell"``/``"mid"``).
+    side: str
+
+
+class FlowOptionBlocksResponse(TypedDict, total=False):
+    """Large option prints from ``GET /v1/flow/options/{symbol}/blocks``.
+
+    All trades with ``size >= minSize`` newest-first. Requires Alpha.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Expiration filter echoed back when supplied, else absent.
+    expiry: Optional[str]
+    # Minimum trade size that qualified as a block (echoed back).
+    minSize: int
+    # Number of blocks returned.
+    count: int
+    # Newest-first list of large prints.
+    blocks: List[FlowOptionBlock]
+
+
+class FlowOptionHistoryBucket(TypedDict, total=False):
+    """One per-minute option-flow bucket (``buckets[]`` element)."""
+
+    # Bucket start (ISO-8601 UTC, minute-aligned).
+    ts: str
+    # Buy-classified volume in the bucket.
+    buyVolume: int
+    # Sell-classified volume in the bucket.
+    sellVolume: int
+    # Mid-classified volume in the bucket.
+    midVolume: int
+    # ``buyVolume - sellVolume``.
+    netVolume: int
+    # Number of trades in the bucket.
+    tradeCount: int
+    # Largest single trade size in the bucket.
+    biggestTrade: int
+    # Volume-weighted average trade price across the bucket.
+    vwap: float
+    # Highest trade price in the bucket.
+    high: float
+    # Lowest trade price in the bucket.
+    low: float
+
+
+class FlowOptionHistoryResponse(TypedDict, total=False):
+    """Per-minute option-flow history from
+    ``GET /v1/flow/options/{symbol}/history``. Newest-first, capped to
+    the ``minutes`` window. Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Expiration filter echoed back when supplied, else absent.
+    expiry: Optional[str]
+    # Lookback window in minutes (echoed back).
+    minutes: int
+    # Number of buckets returned.
+    count: int
+    # Newest-first list of per-minute aggregates.
+    buckets: List[FlowOptionHistoryBucket]
+
+
+class FlowCumulativePoint(TypedDict, total=False):
+    """One point of a cumulative net-flow series (``points[]`` element).
+
+    Shared by the option and stock ``/cumulative`` endpoints.
+    """
+
+    # Bucket start (ISO-8601 UTC, minute-aligned).
+    ts: str
+    # Net volume in this minute bucket.
+    netVolume: int
+    # Running sum of ``netVolume`` from the start of the window
+    # (the "HIRO-style" cumulative line).
+    cumulative: int
+    # Volume-weighted average price in the bucket.
+    vwap: float
+    # Number of trades in the bucket.
+    tradeCount: int
+
+
+class FlowOptionCumulativeResponse(TypedDict, total=False):
+    """Cumulative option net-flow series from
+    ``GET /v1/flow/options/{symbol}/cumulative``. Requires Alpha.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Expiration filter echoed back when supplied, else absent.
+    expiry: Optional[str]
+    # Lookback window in minutes (echoed back).
+    minutes: int
+    # Number of points returned.
+    count: int
+    # Chronological cumulative net-flow series.
+    points: List[FlowCumulativePoint]
+
+
+class FlowStockTrade(TypedDict, total=False):
+    """A single stock trade print (``trades[]`` element)."""
+
+    # Trade timestamp (ISO-8601 UTC).
+    ts: str
+    # Trade price.
+    price: float
+    # Trade size in shares.
+    size: int
+    # Trade-side classification (``"buy"``/``"sell"``/``"mid"``).
+    side: str
+    # True when the print is at/above the block-size threshold.
+    isBlock: bool
+    # NBBO bid at the moment of the trade.
+    bid: float
+    # NBBO ask at the moment of the trade.
+    ask: float
+
+
+class FlowStockRecentResponse(TypedDict, total=False):
+    """Recent stock trades from ``GET /v1/flow/stocks/{symbol}/recent``.
+
+    Newest-first stock tape. Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Number of trades returned (capped by ``limit``).
+    count: int
+    # Unclamped total trade count available.
+    totalAvailable: int
+    # Newest-first list of trade prints.
+    trades: List[FlowStockTrade]
+
+
+class FlowStockSummaryResponse(TypedDict, total=False):
+    """Per-symbol stock-flow aggregates from
+    ``GET /v1/flow/stocks/{symbol}/summary``. Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Total number of trade prints.
+    totalTrades: int
+    # Buy-classified share volume.
+    buyVolume: int
+    # Sell-classified share volume.
+    sellVolume: int
+    # Volume classified at the mid (uninformed).
+    midVolume: int
+    # ``buyVolume - sellVolume``.
+    netVolume: int
+    # Largest single trade size.
+    biggestSingleTrade: int
+    # Timestamp of the most recent print; absent when no trades.
+    lastTradeUtc: Optional[str]
+
+
+class FlowStockBlock(TypedDict, total=False):
+    """A single large stock print (``blocks[]`` element)."""
+
+    # Trade timestamp (ISO-8601 UTC).
+    ts: str
+    # Trade price.
+    price: float
+    # Trade size in shares.
+    size: int
+    # Trade-side classification (``"buy"``/``"sell"``/``"mid"``).
+    side: str
+    # NBBO bid at the moment of the trade.
+    bid: float
+    # NBBO ask at the moment of the trade.
+    ask: float
+
+
+class FlowStockBlocksResponse(TypedDict, total=False):
+    """Large stock prints from ``GET /v1/flow/stocks/{symbol}/blocks``.
+
+    All trades with ``size >= minSize`` newest-first. Requires Alpha.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Minimum trade size that qualified as a block (echoed back).
+    minSize: int
+    # Number of blocks returned.
+    count: int
+    # Newest-first list of large prints.
+    blocks: List[FlowStockBlock]
+
+
+class FlowStockHistoryBucket(TypedDict, total=False):
+    """One per-minute stock-flow bucket (``buckets[]`` element).
+
+    Like ``FlowOptionHistoryBucket`` but also carries OHLC
+    (``open``/``close``/``high``/``low``) of the underlying print price.
+    """
+
+    # Bucket start (ISO-8601 UTC, minute-aligned).
+    ts: str
+    # Buy-classified volume in the bucket.
+    buyVolume: int
+    # Sell-classified volume in the bucket.
+    sellVolume: int
+    # Mid-classified volume in the bucket.
+    midVolume: int
+    # ``buyVolume - sellVolume``.
+    netVolume: int
+    # Number of trades in the bucket.
+    tradeCount: int
+    # Largest single trade size in the bucket.
+    biggestTrade: int
+    # Volume-weighted average trade price across the bucket.
+    vwap: float
+    # First trade price in the bucket.
+    open: float
+    # Last trade price in the bucket.
+    close: float
+    # Highest trade price in the bucket.
+    high: float
+    # Lowest trade price in the bucket.
+    low: float
+
+
+class FlowStockHistoryResponse(TypedDict, total=False):
+    """Per-minute stock-flow history from
+    ``GET /v1/flow/stocks/{symbol}/history``. Newest-first, capped to
+    the ``minutes`` window. Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Lookback window in minutes (echoed back).
+    minutes: int
+    # Number of buckets returned.
+    count: int
+    # Newest-first list of per-minute aggregates.
+    buckets: List[FlowStockHistoryBucket]
+
+
+class FlowStockCumulativeResponse(TypedDict, total=False):
+    """Cumulative stock net-flow series from
+    ``GET /v1/flow/stocks/{symbol}/cumulative``. Requires Alpha.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Lookback window in minutes (echoed back).
+    minutes: int
+    # Number of points returned.
+    count: int
+    # Chronological cumulative net-flow series.
+    points: List[FlowCumulativePoint]
+
+
+class FlowOptionLeaderRow(TypedDict, total=False):
+    """One ranked underlying in the option-flow leaderboard.
+
+    Note: option rows carry ``avgPremium`` (avg option price); the stock
+    leaderboard uses ``vwap`` instead.
+    """
+
+    # Ranked underlying.
+    symbol: str
+    # Net contracts (``buyVolume - sellVolume``).
+    netVolume: int
+    # Net dollar option flow (≈ net contracts × avg premium × 100).
+    netNotional: float
+    # Buy-classified contract volume.
+    buyVolume: int
+    # Sell-classified contract volume.
+    sellVolume: int
+    # Volume-weighted average option premium over the window.
+    avgPremium: float
+    # Number of trades over the window.
+    tradeCount: int
+    # Timestamp of the most recent print (ISO-8601 UTC).
+    lastTradeUtc: str
+
+
+class FlowOptionLeaderboardResponse(TypedDict, total=False):
+    """Cross-symbol option-flow leaderboard from
+    ``GET /v1/flow/options/leaderboard``.
+
+    Top ``n`` net-dollar buyers and sellers over the window. Cached ~30s.
+    Requires the Alpha plan.
+    """
+
+    # When the snapshot was generated (ISO-8601 UTC).
+    generatedUtc: str
+    # Number of ranked rows requested per side.
+    n: int
+    # Aggregation window in minutes.
+    windowMinutes: int
+    # Top net-dollar buyers.
+    buyers: List[FlowOptionLeaderRow]
+    # Top net-dollar sellers.
+    sellers: List[FlowOptionLeaderRow]
+
+
+class FlowOutlierRow(TypedDict, total=False):
+    """One flagged underlying in an outliers table (option or stock)."""
+
+    # Flagged underlying.
+    symbol: str
+    # Number of trades over the window.
+    tradeCount: int
+    # Buy-classified volume.
+    buyVolume: int
+    # Sell-classified volume.
+    sellVolume: int
+    # Mid-classified volume.
+    midVolume: int
+    # ``buyVolume - sellVolume``.
+    netVolume: int
+    # ``|buy-sell| / (buy+sell)`` × 100: 0 = balanced, 100 = one-sided.
+    imbalancePct: float
+    # Tiered skew label (``FLAT``/``MILD_BUY``/``BUY``/``STRONG_BUY``/…).
+    skew: str
+    # Gross traded notional over the window (dollars).
+    notional: float
+    # Net (signed) traded notional over the window (dollars).
+    netNotional: float
+    # Largest single trade size.
+    biggestTrade: int
+    # Timestamp of the biggest print; ``None`` if none in window.
+    biggestTradeUtc: Optional[str]
+    # Age of the biggest print in seconds; ``-1`` if none.
+    biggestAgeSec: int
+    # VWAP of the most recent activity.
+    lastVwap: float
+    # Timestamp of the last print; ``None`` if none.
+    lastTradeUtc: Optional[str]
+    # Age of the last print in seconds; ``-1`` if none.
+    lastTradeAgeSec: int
+
+
+class FlowOptionOutliersResponse(TypedDict, total=False):
+    """Cross-symbol option-flow outliers from
+    ``GET /v1/flow/options/outliers``. Cached ~30s. Requires Alpha.
+    """
+
+    # When the snapshot was generated (ISO-8601 UTC).
+    generatedUtc: str
+    # Aggregation window in minutes.
+    windowMinutes: int
+    # Symbols evaluated.
+    tracked: int
+    # Symbols that met ``minTrades`` and had non-zero volume.
+    qualified: int
+    # Max rows requested.
+    limit: int
+    # Imbalance-ranked flagged underlyings.
+    outliers: List[FlowOutlierRow]
+
+
+class FlowStockLeaderRow(TypedDict, total=False):
+    """One ranked symbol in the stock-flow leaderboard.
+
+    Note: stock rows carry ``vwap``; the option leaderboard uses
+    ``avgPremium`` instead.
+    """
+
+    # Ranked symbol.
+    symbol: str
+    # Net shares (``buyVolume - sellVolume``).
+    netVolume: int
+    # Net dollar flow (net shares × VWAP).
+    netNotional: float
+    # Buy-classified share volume.
+    buyVolume: int
+    # Sell-classified share volume.
+    sellVolume: int
+    # Volume-weighted average trade price over the window.
+    vwap: float
+    # Number of trades over the window.
+    tradeCount: int
+    # Timestamp of the most recent print (ISO-8601 UTC).
+    lastTradeUtc: str
+
+
+class FlowStockLeaderboardResponse(TypedDict, total=False):
+    """Cross-symbol stock-flow leaderboard from
+    ``GET /v1/flow/stocks/leaderboard``. Cached ~30s. Requires Alpha.
+    """
+
+    # When the snapshot was generated (ISO-8601 UTC).
+    generatedUtc: str
+    # Number of ranked rows requested per side.
+    n: int
+    # Aggregation window in minutes.
+    windowMinutes: int
+    # Top net-dollar buyers.
+    buyers: List[FlowStockLeaderRow]
+    # Top net-dollar sellers.
+    sellers: List[FlowStockLeaderRow]
+
+
+class FlowStockOutliersResponse(TypedDict, total=False):
+    """Cross-symbol stock-flow outliers from
+    ``GET /v1/flow/stocks/outliers``. Cached ~30s. Requires Alpha.
+    """
+
+    # When the snapshot was generated (ISO-8601 UTC).
+    generatedUtc: str
+    # Aggregation window in minutes.
+    windowMinutes: int
+    # Symbols evaluated.
+    tracked: int
+    # Symbols that met ``minTrades`` and had non-zero volume.
+    qualified: int
+    # Max rows requested.
+    limit: int
+    # Imbalance-ranked flagged symbols.
+    outliers: List[FlowOutlierRow]

@@ -24,6 +24,28 @@ if TYPE_CHECKING:
         DexResponse,
         ExposureLevelsResponse,
         ExposureSummaryResponse,
+        FlowDealerRiskResponse,
+        FlowDexResponse,
+        FlowGexResponse,
+        FlowLevelsResponse,
+        FlowLiveResponse,
+        FlowOiResponse,
+        FlowOptionBlocksResponse,
+        FlowOptionCumulativeResponse,
+        FlowOptionHistoryResponse,
+        FlowOptionLeaderboardResponse,
+        FlowOptionOutliersResponse,
+        FlowOptionRecentResponse,
+        FlowOptionSummaryResponse,
+        FlowPinRiskResponse,
+        FlowStockBlocksResponse,
+        FlowStockCumulativeResponse,
+        FlowStockHistoryResponse,
+        FlowStockLeaderboardResponse,
+        FlowStockOutliersResponse,
+        FlowStockRecentResponse,
+        FlowStockSummaryResponse,
+        FlowSummaryResponse,
         GexResponse,
         HealthResponse,
         MaxPainResponse,
@@ -244,12 +266,218 @@ class FlashAlpha:
             params["strike_range"] = strike_range
         return self._get(f"/v1/exposure/zero-dte/{_seg(symbol)}", params or None)
 
-    def exposure_history(self, symbol: str, *, days: int | None = None) -> dict:
-        """Daily exposure snapshots for trend analysis. Requires Growth+."""
+    # ── Flow (live, simulation-aware) — requires the Alpha plan ──────
+    #
+    # Analytics endpoints (snake_case wire shape) fold today's intraday
+    # trade tape into the settled book. All accept an optional
+    # ``expiry="YYYY-MM-DD"`` to slice to a single expiration cycle.
+
+    def flow_levels(self, symbol: str, *, expiry: str | None = None) -> FlowLevelsResponse:
+        """Live gamma flip / call & put walls / max pain. Requires Alpha."""
         params: dict[str, Any] = {}
-        if days is not None:
-            params["days"] = days
-        return self._get(f"/v1/exposure/history/{_seg(symbol)}", params or None)
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/levels/{_seg(symbol)}", params or None)
+
+    def flow_pin_risk(self, symbol: str, *, expiry: str | None = None) -> FlowPinRiskResponse:
+        """0DTE pin-risk score + component breakdown. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/pin-risk/{_seg(symbol)}", params or None)
+
+    def flow_summary(self, symbol: str, *, expiry: str | None = None) -> FlowSummaryResponse:
+        """At-a-glance flow direction + headline GEX shift. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/summary/{_seg(symbol)}", params or None)
+
+    def flow_oi(self, symbol: str, *, expiry: str | None = None) -> FlowOiResponse:
+        """Open-interest simulator state (official vs intraday). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/oi/{_seg(symbol)}", params or None)
+
+    def flow_gex(self, symbol: str, *, expiry: str | None = None) -> FlowGexResponse:
+        """Live (flow-adjusted) GEX + per-strike profile. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/gex/{_seg(symbol)}", params or None)
+
+    def flow_dex(self, symbol: str, *, expiry: str | None = None) -> FlowDexResponse:
+        """Live (flow-adjusted) DEX + per-strike profile. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/dex/{_seg(symbol)}", params or None)
+
+    def flow_dealer_risk(self, symbol: str, *, expiry: str | None = None) -> FlowDealerRiskResponse:
+        """Settled-vs-live dealer GEX/DEX + flow adjustment. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/dealer-risk/{_seg(symbol)}", params or None)
+
+    def flow_live(self, symbol: str, *, expiry: str | None = None) -> FlowLiveResponse:
+        """Everything-at-once live flow bundle (convenience). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/live/{_seg(symbol)}", params or None)
+
+    # Raw flow data (camelCase wire shape) — proxied trade tape.
+
+    def flow_option_recent(
+        self, symbol: str, *, limit: int | None = None, expiry: str | None = None
+    ) -> FlowOptionRecentResponse:
+        """Recent option trades, newest-first (``limit`` 1–500). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/options/{_seg(symbol)}/recent", params or None)
+
+    def flow_option_summary(
+        self, symbol: str, *, expiry: str | None = None
+    ) -> FlowOptionSummaryResponse:
+        """Per-underlying option-flow aggregates. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/options/{_seg(symbol)}/summary", params or None)
+
+    def flow_option_blocks(
+        self, symbol: str, *, min_size: int | None = None, expiry: str | None = None
+    ) -> FlowOptionBlocksResponse:
+        """Large option prints (``size >= min_size``). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if min_size is not None:
+            params["minSize"] = min_size
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/options/{_seg(symbol)}/blocks", params or None)
+
+    def flow_option_history(
+        self, symbol: str, *, minutes: int | None = None, expiry: str | None = None
+    ) -> FlowOptionHistoryResponse:
+        """Per-minute option-flow buckets (``minutes`` 1–10080). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if minutes is not None:
+            params["minutes"] = minutes
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/options/{_seg(symbol)}/history", params or None)
+
+    def flow_option_cumulative(
+        self, symbol: str, *, minutes: int | None = None, expiry: str | None = None
+    ) -> FlowOptionCumulativeResponse:
+        """Cumulative option net-flow series. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if minutes is not None:
+            params["minutes"] = minutes
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/options/{_seg(symbol)}/cumulative", params or None)
+
+    def flow_stock_recent(
+        self, symbol: str, *, limit: int | None = None
+    ) -> FlowStockRecentResponse:
+        """Recent stock trades, newest-first (``limit`` 1–500). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._get(f"/v1/flow/stocks/{_seg(symbol)}/recent", params or None)
+
+    def flow_stock_summary(self, symbol: str) -> FlowStockSummaryResponse:
+        """Per-symbol stock-flow aggregates. Requires Alpha."""
+        return self._get(f"/v1/flow/stocks/{_seg(symbol)}/summary")
+
+    def flow_stock_blocks(
+        self, symbol: str, *, min_size: int | None = None
+    ) -> FlowStockBlocksResponse:
+        """Large stock prints (``size >= min_size``). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if min_size is not None:
+            params["minSize"] = min_size
+        return self._get(f"/v1/flow/stocks/{_seg(symbol)}/blocks", params or None)
+
+    def flow_stock_history(
+        self, symbol: str, *, minutes: int | None = None
+    ) -> FlowStockHistoryResponse:
+        """Per-minute stock-flow buckets w/ OHLC (``minutes`` 1–10080). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if minutes is not None:
+            params["minutes"] = minutes
+        return self._get(f"/v1/flow/stocks/{_seg(symbol)}/history", params or None)
+
+    def flow_stock_cumulative(
+        self, symbol: str, *, minutes: int | None = None
+    ) -> FlowStockCumulativeResponse:
+        """Cumulative stock net-flow series. Requires Alpha."""
+        params: dict[str, Any] = {}
+        if minutes is not None:
+            params["minutes"] = minutes
+        return self._get(f"/v1/flow/stocks/{_seg(symbol)}/cumulative", params or None)
+
+    def flow_options_leaderboard(
+        self, *, n: int | None = None, window_minutes: int | None = None
+    ) -> FlowOptionLeaderboardResponse:
+        """Cross-symbol option-flow leaderboard (top ``n`` by net $). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if n is not None:
+            params["n"] = n
+        if window_minutes is not None:
+            params["windowMinutes"] = window_minutes
+        return self._get("/v1/flow/options/leaderboard", params or None)
+
+    def flow_options_outliers(
+        self,
+        *,
+        limit: int | None = None,
+        min_trades: int | None = None,
+        window_minutes: int | None = None,
+    ) -> FlowOptionOutliersResponse:
+        """Cross-symbol option-flow outliers (imbalance-ranked). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if min_trades is not None:
+            params["minTrades"] = min_trades
+        if window_minutes is not None:
+            params["windowMinutes"] = window_minutes
+        return self._get("/v1/flow/options/outliers", params or None)
+
+    def flow_stocks_leaderboard(
+        self, *, n: int | None = None, window_minutes: int | None = None
+    ) -> FlowStockLeaderboardResponse:
+        """Cross-symbol stock-flow leaderboard (top ``n`` by net $). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if n is not None:
+            params["n"] = n
+        if window_minutes is not None:
+            params["windowMinutes"] = window_minutes
+        return self._get("/v1/flow/stocks/leaderboard", params or None)
+
+    def flow_stocks_outliers(
+        self,
+        *,
+        limit: int | None = None,
+        min_trades: int | None = None,
+        window_minutes: int | None = None,
+    ) -> FlowStockOutliersResponse:
+        """Cross-symbol stock-flow outliers (imbalance-ranked). Requires Alpha."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if min_trades is not None:
+            params["minTrades"] = min_trades
+        if window_minutes is not None:
+            params["windowMinutes"] = window_minutes
+        return self._get("/v1/flow/stocks/outliers", params or None)
 
     # ── Pricing & Sizing ────────────────────────────────────────────
 

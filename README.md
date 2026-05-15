@@ -231,7 +231,6 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.exposure_summary(symbol)` | Full exposure summary with hedging | Growth+ |
 | `fa.narrative(symbol)` | AI narrative analysis | Growth+ |
 | `fa.zero_dte(symbol)` | 0DTE analytics (regime, pin risk, decay) | Growth+ |
-| `fa.exposure_history(symbol)` | Daily exposure snapshots | Growth+ |
 | `fa.stock_quote(ticker)` | Live stock quote | Free+ |
 | `fa.option_quote(ticker)` | Option quotes with greeks | Growth+ |
 | `fa.stock_summary(symbol)` | Comprehensive stock summary | Public/Free+ |

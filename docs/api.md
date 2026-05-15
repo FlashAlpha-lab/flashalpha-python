@@ -66,7 +66,6 @@ https://lab.flashalpha.com/v1/symbols?apiKey=YOUR_API_KEY
 - [`GET /v1/exposure/narrative/{symbol}`](#get-v1exposurenarrativesymbol) — Verbal narrative analysis `Growth+`
 - [`GET /v1/exposure/zero-dte/{symbol}`](#get-v1exposurezero-dtesymbol) — Real-time 0DTE analytics `Growth+`
 - [`GET /v1/maxpain/{symbol}`](#get-v1maxpainsymbol) — Max pain analysis with dealer alignment `Basic+`
-- [`GET /v1/exposure/history/{symbol}`](#get-v1exposurehistorysymbol) — Daily exposure history `Growth+` *(coming soon)*
 
 ### Pricing & Sizing
 
@@ -997,54 +996,6 @@ If the symbol has no 0DTE expiry today (e.g. SPY on Tuesday/Thursday):
 - Near close (<5 minutes), a `warnings` array is included noting potential greek instability
 - `strike_range` only filters the `strikes` array — all aggregate calculations use the full 0DTE chain
 - All calculations are pure static (no external calls beyond the initial data fetch)
-
----
-
-## `GET /v1/exposure/history/{symbol}`
-
-Returns daily exposure snapshots for trend analysis. Data is stored end-of-day and returned newest first.
-
-**Requires Growth plan or higher.** *Currently returns `503 coming_soon`.*
-
-### Parameters
-
-| Name | In | Required | Default | Description |
-|------|----|----------|---------|-------------|
-| `symbol` | path | yes | — | Underlying symbol |
-| `days` | query | no | `30` | Days of history (1-365) |
-
-### Example
-
-```bash
-curl -H "X-Api-Key: YOUR_API_KEY" \
-  "https://lab.flashalpha.com/v1/exposure/history/SPY?days=7"
-```
-
-### Response `200` *(when available)*
-
-```json
-{
-  "symbol": "SPY",
-  "days": 7,
-  "count": 5,
-  "snapshots": [
-    {
-      "date": "2026-02-28",
-      "underlying_price": 597.505,
-      "net_gex": 2850000000,
-      "net_dex": -450000000,
-      "net_vex": 1200000000,
-      "net_chex": 850000000,
-      "gamma_flip": 595.25,
-      "call_wall": 600.0,
-      "put_wall": 595.0,
-      "regime": "positive_gamma"
-    }
-  ]
-}
-```
-
----
 
 ## `GET /v1/maxpain/{symbol}`
 

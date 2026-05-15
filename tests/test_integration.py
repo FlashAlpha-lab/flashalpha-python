@@ -5,6 +5,7 @@ Requires FLASHALPHA_API_KEY env var.
 """
 
 import os
+from typing import get_args
 
 import pytest
 
@@ -1135,8 +1136,11 @@ def _assert_all_keys_populated(prefix: str, td_class, value: dict) -> None:
     """Walk every key declared on ``td_class.__annotations__`` against ``value``.
 
     For each declared field:
-      * The key must be present in the response dict.
-      * The value must not be ``None``.
+      * The key must be present in the response dict (the contract guarantee).
+      * The value must not be ``None`` *unless* the field is annotated
+        ``Optional[...]`` — the API legitimately returns ``null`` for those
+        (e.g. ``narrative.data.net_gex_prior`` when there is no prior
+        session). Required (non-Optional) fields must still be populated.
       * If the annotation is a nested TypedDict in ``_WALKABLE_TYPED_DICTS``,
         recurse into it.
 
@@ -1149,8 +1153,12 @@ def _assert_all_keys_populated(prefix: str, td_class, value: dict) -> None:
     for key, ann in annotations.items():
         assert key in value, f"{prefix}.{key} missing from response"
         v = value[key]
-        assert v is not None, f"{prefix}.{key} is None"
-        if _is_walkable_typeddict(ann):
+        # ``Optional[X]`` == ``Union[X, None]`` — null is contractually valid
+        # for those fields, so only require non-None on required fields.
+        optional = type(None) in get_args(ann)
+        if not optional:
+            assert v is not None, f"{prefix}.{key} is None"
+        if v is not None and _is_walkable_typeddict(ann):
             assert isinstance(v, dict), f"{prefix}.{key} expected dict, got {type(v).__name__}"
             _assert_all_keys_populated(f"{prefix}.{key}", ann, v)
 
@@ -1434,7 +1442,7 @@ def test_surface_every_field_declared_in_typeddict(fa):
     assert isinstance(result["moneyness"], list) and len(result["moneyness"]) > 0
     assert isinstance(result["iv"], list) and len(result["iv"]) > 0
     assert isinstance(result["iv"][0], list) and len(result["iv"][0]) > 0
-    assert isinstance(result["slices_used"], list)
+    assert isinstance(result["slices_used"], int)
 
 
 def test_gex_every_field_declared_in_typeddict(fa):
@@ -1494,40 +1502,36 @@ def test_chex_every_field_declared_in_typeddict(fa):
 
 
 def test_option_quote_every_field_declared_in_typeddict(fa):
-    """Every key declared on ``OptionQuoteResponse`` must be present on a
-    fully-specified single-contract request.
+    """Every key declared on ``OptionQuoteResponse`` must be present.
 
-    Single-contract response is the strictest shape — when the request fully
-    specifies expiry+strike+type the API returns one ``OptionQuoteResponse``,
-    not a list. Growth+; skip on ``TierRestrictedError``.
-
-    Discovers a valid (expiry, strike) via the chain-metadata endpoint to
-    avoid a brittle hard-coded contract that drifts off the chain.
+    Uses the unfiltered chain (one call) — the list contains only
+    contracts that actually have a quote, and the per-element shape is
+    identical to the single-contract response. We then validate the
+    **ATM** element (strike nearest spot): far-OTM listings legitimately
+    omit greeks, so ATM is the strictest reliably-populated contract.
+    Growth+; skip on ``TierRestrictedError``.
     """
     try:
-        # Pick a real contract from the chain so this doesn't break with strike rolls.
-        chain = fa.options("SPY")
-        if not chain.get("expirations"):
-            pytest.skip("no expirations available on SPY chain")
-        first_exp = chain["expirations"][0]
-        expiry = first_exp["expiration"]
-        strikes_list = first_exp["strikes"]
-        if not strikes_list:
-            pytest.skip("no strikes on first expiry")
-        # Pick a strike near the middle of the list (likely near ATM).
-        strike = strikes_list[len(strikes_list) // 2]
-        result = fa.option_quote("SPY", expiry=expiry, strike=strike, type="call")
+        sq = fa.stock_quote("SPY")
+        spot = sq.get("mid") or sq.get("lastPrice")
+        chain = fa.option_quote("SPY")
     except TierRestrictedError as exc:
         pytest.skip(f"option_quote requires Growth+: {exc}")
 
-    # When all three filters are set, server returns the single shape.
-    if isinstance(result, list):
-        # Defensive: degrade to first element if server wraps anyway.
-        assert len(result) > 0, "option_quote returned empty list"
-        result = result[0]
-    assert isinstance(result, dict)
+    assert isinstance(chain, list) and chain, "option_quote returned no contracts"
+    quoted = [c for c in chain if isinstance(c, dict) and c.get("strike") is not None]
+    assert quoted, "option_quote returned no contracts with a strike"
+    result = (
+        min(quoted, key=lambda c: abs(c["strike"] - spot)) if spot else quoted[0]
+    )
 
+    # ``underlying`` is modelled for forward-compat but the /optionquote
+    # endpoint does not emit it (verified live on both the list and
+    # single-contract shapes) — it is a genuinely optional leaf, so don't
+    # require its presence. Every other declared field must be present.
     for key in OptionQuoteResponse.__annotations__:
+        if key == "underlying":
+            continue
         assert key in result, f"option_quote.{key} missing from response"
 
 
@@ -1545,3 +1549,258 @@ def test_stock_quote_every_field_declared_in_typeddict(fa):
     # Camel-cased on the wire, preserved verbatim on the typed dict.
     assert "lastPrice" in result
     assert "lastUpdate" in result
+
+
+# ── Flow (live, simulation-aware) — Alpha+ ──────────────────────────
+#
+# These hit the real /v1/flow/* surface and assert every field declared
+# in the canonical contract is present on the live response (and on the
+# nested array-element shapes when the arrays are non-empty). The test
+# key is Alpha+; if a future key is not, the tier-gate skip keeps the
+# suite green rather than red.
+
+FLOW_SYMBOL = "SPY"
+
+
+def _require(obj, fields, where):
+    """Assert every name in ``fields`` is a key of ``obj``."""
+    assert isinstance(obj, dict), f"{where}: expected object, got {type(obj)}"
+    missing = [f for f in fields if f not in obj]
+    assert not missing, f"{where}: missing fields {missing}"
+
+
+def _flow(call):
+    """Invoke a flow call, skipping if the key lacks the Alpha tier."""
+    try:
+        return call()
+    except TierRestrictedError as exc:
+        pytest.skip(f"flow requires Alpha plan: {exc}")
+
+
+def test_flow_levels(fa):
+    r = _flow(lambda: fa.flow_levels(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "underlying_price", "expiry",
+                "live_gamma_flip", "live_call_wall", "live_put_wall",
+                "live_max_pain"], "flow/levels")
+    assert r["symbol"] == FLOW_SYMBOL
+
+
+def test_flow_pin_risk(fa):
+    r = _flow(lambda: fa.flow_pin_risk(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "underlying_price", "expiry",
+                "live_pin_risk", "magnet_strike", "distance_to_magnet_pct",
+                "time_to_close_hours", "breakdown"], "flow/pin-risk")
+    _require(r["breakdown"], ["oi_score", "proximity_score", "time_score",
+                              "gamma_score"], "flow/pin-risk.breakdown")
+
+
+def test_flow_summary(fa):
+    r = _flow(lambda: fa.flow_summary(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "underlying_price", "expiry",
+                "flow_direction", "intraday_oi_delta", "contracts_with_flow",
+                "contracts_total", "live_gex", "flow_gex_pct_shift"],
+             "flow/summary")
+
+
+def test_flow_oi(fa):
+    r = _flow(lambda: fa.flow_oi(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "expiry", "official_oi", "simulated_oi",
+                "intraday_oi_delta", "oi_delta_confidence", "effective_oi",
+                "contracts_total", "contracts_with_flow"], "flow/oi")
+
+
+def test_flow_gex(fa):
+    r = _flow(lambda: fa.flow_gex(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "underlying_price", "expiry",
+                "live_net_gex", "live_net_gex_label", "live_gamma_flip",
+                "strikes"], "flow/gex")
+    assert isinstance(r["strikes"], list) and r["strikes"]
+    _require(r["strikes"][0], ["strike", "call_gex", "put_gex", "net_gex",
+                               "call_oi", "put_oi", "call_volume",
+                               "put_volume"], "flow/gex.strikes[0]")
+
+
+def test_flow_dex(fa):
+    r = _flow(lambda: fa.flow_dex(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "underlying_price", "expiry",
+                "live_net_dex", "strikes"], "flow/dex")
+    assert isinstance(r["strikes"], list) and r["strikes"]
+    _require(r["strikes"][0], ["strike", "call_dex", "put_dex", "net_dex"],
+             "flow/dex.strikes[0]")
+
+
+def test_flow_dealer_risk(fa):
+    r = _flow(lambda: fa.flow_dealer_risk(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "underlying_price", "expiry",
+                "settled_net_gex", "live_net_gex", "flow_gex_adjustment",
+                "flow_gex_pct_shift", "settled_net_dex", "live_net_dex",
+                "flow_dex_adjustment", "flow_dex_pct_shift",
+                "total_abs_delta_contracts", "contracts_with_flow",
+                "flow_direction", "description"], "flow/dealer-risk")
+
+
+def test_flow_live(fa):
+    r = _flow(lambda: fa.flow_live(FLOW_SYMBOL))
+    _require(r, ["symbol", "as_of", "underlying_price", "expiry",
+                "contracts", "contracts_with_flow", "official_oi",
+                "simulated_oi", "intraday_oi_delta", "oi_delta_confidence",
+                "effective_oi", "live_gex", "live_gex_delta",
+                "live_gamma_flip", "live_call_wall", "live_put_wall",
+                "live_max_pain", "live_pin_risk",
+                "flow_adjusted_dealer_risk"], "flow/live")
+    _require(r["flow_adjusted_dealer_risk"],
+             ["settled_net_gex", "live_net_gex", "flow_gex_adjustment",
+              "flow_gex_pct_shift", "settled_net_dex", "live_net_dex",
+              "flow_dex_adjustment", "flow_dex_pct_shift",
+              "total_abs_delta_contracts", "flow_direction", "description"],
+             "flow/live.flow_adjusted_dealer_risk")
+
+
+def test_flow_option_recent(fa):
+    r = _flow(lambda: fa.flow_option_recent(FLOW_SYMBOL, limit=5))
+    _require(r, ["symbol", "count", "totalAvailable", "trades"],
+             "flow/options/recent")
+    assert isinstance(r["trades"], list)
+    if r["trades"]:
+        _require(r["trades"][0], ["ts", "instrumentId", "expiry", "strike",
+                                  "right", "price", "size", "side",
+                                  "isBlock", "bid", "ask"],
+                 "flow/options/recent.trades[0]")
+
+
+def test_flow_option_summary(fa):
+    r = _flow(lambda: fa.flow_option_summary(FLOW_SYMBOL))
+    _require(r, ["symbol", "contractsWithTrades", "totalTrades",
+                "buyVolume", "sellVolume", "midVolume", "netVolume",
+                "biggestSingleTrade"], "flow/options/summary")
+
+
+def test_flow_option_blocks(fa):
+    r = _flow(lambda: fa.flow_option_blocks(FLOW_SYMBOL, min_size=50))
+    _require(r, ["symbol", "minSize", "count", "blocks"],
+             "flow/options/blocks")
+    if r["blocks"]:
+        _require(r["blocks"][0], ["ts", "expiry", "strike", "right",
+                                  "price", "size", "side"],
+                 "flow/options/blocks.blocks[0]")
+
+
+def test_flow_option_history(fa):
+    r = _flow(lambda: fa.flow_option_history(FLOW_SYMBOL, minutes=30))
+    _require(r, ["symbol", "minutes", "count", "buckets"],
+             "flow/options/history")
+    if r["buckets"]:
+        _require(r["buckets"][0], ["ts", "buyVolume", "sellVolume",
+                                   "midVolume", "netVolume", "tradeCount",
+                                   "biggestTrade", "vwap", "high", "low"],
+                 "flow/options/history.buckets[0]")
+
+
+def test_flow_option_cumulative(fa):
+    r = _flow(lambda: fa.flow_option_cumulative(FLOW_SYMBOL, minutes=60))
+    _require(r, ["symbol", "minutes", "count", "points"],
+             "flow/options/cumulative")
+    if r["points"]:
+        _require(r["points"][0], ["ts", "netVolume", "cumulative", "vwap",
+                                  "tradeCount"],
+                 "flow/options/cumulative.points[0]")
+
+
+def test_flow_stock_recent(fa):
+    r = _flow(lambda: fa.flow_stock_recent(FLOW_SYMBOL, limit=5))
+    _require(r, ["symbol", "count", "totalAvailable", "trades"],
+             "flow/stocks/recent")
+    if r["trades"]:
+        _require(r["trades"][0], ["ts", "price", "size", "side", "isBlock",
+                                  "bid", "ask"],
+                 "flow/stocks/recent.trades[0]")
+
+
+def test_flow_stock_summary(fa):
+    r = _flow(lambda: fa.flow_stock_summary(FLOW_SYMBOL))
+    _require(r, ["symbol", "totalTrades", "buyVolume", "sellVolume",
+                "midVolume", "netVolume", "biggestSingleTrade"],
+             "flow/stocks/summary")
+
+
+def test_flow_stock_blocks(fa):
+    r = _flow(lambda: fa.flow_stock_blocks(FLOW_SYMBOL, min_size=1000))
+    _require(r, ["symbol", "minSize", "count", "blocks"],
+             "flow/stocks/blocks")
+    if r["blocks"]:
+        _require(r["blocks"][0], ["ts", "price", "size", "side", "bid",
+                                  "ask"], "flow/stocks/blocks.blocks[0]")
+
+
+def test_flow_stock_history(fa):
+    r = _flow(lambda: fa.flow_stock_history(FLOW_SYMBOL, minutes=30))
+    _require(r, ["symbol", "minutes", "count", "buckets"],
+             "flow/stocks/history")
+    if r["buckets"]:
+        _require(r["buckets"][0], ["ts", "buyVolume", "sellVolume",
+                                   "midVolume", "netVolume", "tradeCount",
+                                   "biggestTrade", "vwap", "open", "close",
+                                   "high", "low"],
+                 "flow/stocks/history.buckets[0]")
+
+
+def test_flow_stock_cumulative(fa):
+    r = _flow(lambda: fa.flow_stock_cumulative(FLOW_SYMBOL, minutes=60))
+    _require(r, ["symbol", "minutes", "count", "points"],
+             "flow/stocks/cumulative")
+    if r["points"]:
+        _require(r["points"][0], ["ts", "netVolume", "cumulative", "vwap",
+                                  "tradeCount"],
+                 "flow/stocks/cumulative.points[0]")
+
+
+def test_flow_options_leaderboard(fa):
+    r = _flow(lambda: fa.flow_options_leaderboard(n=3))
+    _require(r, ["generatedUtc", "n", "windowMinutes", "buyers", "sellers"],
+             "flow/options/leaderboard")
+    for row in (r["buyers"] + r["sellers"]):
+        _require(row, ["symbol", "netVolume", "netNotional", "buyVolume",
+                       "sellVolume", "avgPremium", "tradeCount",
+                       "lastTradeUtc"], "flow/options/leaderboard.row")
+        break
+
+
+def test_flow_options_outliers(fa):
+    r = _flow(lambda: fa.flow_options_outliers(limit=3))
+    _require(r, ["generatedUtc", "windowMinutes", "tracked", "qualified",
+                "limit", "outliers"], "flow/options/outliers")
+    if r["outliers"]:
+        _require(r["outliers"][0], ["symbol", "tradeCount", "buyVolume",
+                                    "sellVolume", "midVolume", "netVolume",
+                                    "imbalancePct", "skew", "notional",
+                                    "netNotional", "biggestTrade",
+                                    "biggestTradeUtc", "biggestAgeSec",
+                                    "lastVwap", "lastTradeUtc",
+                                    "lastTradeAgeSec"],
+                 "flow/options/outliers.outliers[0]")
+
+
+def test_flow_stocks_leaderboard(fa):
+    r = _flow(lambda: fa.flow_stocks_leaderboard(n=3))
+    _require(r, ["generatedUtc", "n", "windowMinutes", "buyers", "sellers"],
+             "flow/stocks/leaderboard")
+    for row in (r["buyers"] + r["sellers"]):
+        _require(row, ["symbol", "netVolume", "netNotional", "buyVolume",
+                       "sellVolume", "vwap", "tradeCount", "lastTradeUtc"],
+                 "flow/stocks/leaderboard.row")
+        break
+
+
+def test_flow_stocks_outliers(fa):
+    r = _flow(lambda: fa.flow_stocks_outliers(limit=3))
+    _require(r, ["generatedUtc", "windowMinutes", "tracked", "qualified",
+                "limit", "outliers"], "flow/stocks/outliers")
+    if r["outliers"]:
+        _require(r["outliers"][0], ["symbol", "tradeCount", "buyVolume",
+                                    "sellVolume", "midVolume", "netVolume",
+                                    "imbalancePct", "skew", "notional",
+                                    "netNotional", "biggestTrade",
+                                    "biggestTradeUtc", "biggestAgeSec",
+                                    "lastVwap", "lastTradeUtc",
+                                    "lastTradeAgeSec"],
+                 "flow/stocks/outliers.outliers[0]")
