@@ -2,6 +2,8 @@
 
 Real-time options exposure analytics. Live gamma (GEX), delta (DEX), vanna (VEX), and charm (CHEX) exposure data, key levels, dealer hedging estimates, and verbal narrative analysis — all derived from live options flow.
 
+> 📖 **Canonical, always-current docs:** https://flashalpha.com/docs · 🔑 [Get a free API key](https://flashalpha.com) · 🧪 [Interactive playground](https://lab.flashalpha.com/swagger)
+
 ---
 
 ## Playground

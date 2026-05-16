@@ -78,6 +78,25 @@ narrative = client.exposure_narrative("SPY")
   (delta, gamma, theta, vega, rho, vanna, charm, vomma, dual delta,
   speed, zomma, color, ultima, lambda, veta).
 
+## Flow — live, simulation-aware (Alpha+)
+
+Intraday trade-tape-adjusted dealer exposure plus the raw options/stock
+flow feed — 22 endpoints under `/v1/flow/*`:
+
+- **Analytics** (snake_case): `flow_levels`, `flow_pin_risk`,
+  `flow_summary`, `flow_oi`, `flow_gex`, `flow_dex`, `flow_dealer_risk`,
+  `flow_live` — live gamma flip / call & put walls / max pain, 0DTE
+  pin score, flow direction + headline GEX shift, OI simulator state,
+  flow-adjusted GEX/DEX per strike, settled-vs-live dealer risk, and an
+  everything-at-once bundle. Optional `expiry="YYYY-MM-DD"` slice.
+- **Raw flow** (camelCase wire keys): `flow_option_recent` /
+  `flow_option_summary` / `flow_option_blocks` / `flow_option_history` /
+  `flow_option_cumulative`, the `flow_stock_*` equivalents, and
+  cross-symbol `flow_options_leaderboard` / `flow_options_outliers` /
+  `flow_stocks_leaderboard` / `flow_stocks_outliers` — per-trade prints,
+  large blocks, per-minute buckets, cumulative net-flow series, and
+  ranked leaderboards / outliers. All require the Alpha plan.
+
 ## Typed responses
 
 Every endpoint listed above has a corresponding `TypedDict` model in
