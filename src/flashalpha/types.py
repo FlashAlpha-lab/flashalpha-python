@@ -3457,3 +3457,181 @@ class FlowStockOutliersResponse(TypedDict, total=False):
     limit: int
     # Imbalance-ranked flagged symbols.
     outliers: List[FlowOutlierRow]
+
+
+# ── Flow signals (unusual-flow feed, Alpha+) ─────────────────────────
+#
+# Per-underlying scored/classified unusual-flow signals. Snake_case wire
+# shape (analytics family). Both endpoints reuse ``FlowSignal``.
+
+
+class FlowSignalsChain(TypedDict, total=False):
+    """Settled-chain reference levels echoed alongside the signals.
+
+    Computed once per request from the settled snapshot — independent of
+    the live flow surface. All fields are ``None`` when the chain
+    snapshot is unavailable.
+    """
+
+    call_wall: Optional[float]
+    put_wall: Optional[float]
+    max_pain: Optional[float]
+    gamma_flip: Optional[float]
+
+
+class FlowSignalScoreBreakdown(TypedDict, total=False):
+    """Component contributions that sum to the headline ``score``.
+
+    Weights are server-tunable so absolute values may shift, but the
+    ordering of components is stable.
+    """
+
+    premium: int
+    size_vs_oi: int
+    aggressor: int
+    sweep: int
+    opening_bias: int
+    tenor: int
+
+
+class FlowSignalEnrichment(TypedDict, total=False):
+    """Chain-derived context attached to a signal.
+
+    All numeric fields are ``None`` and ``moneyness`` is ``"unknown"``
+    when the contract isn't in the settled chain snapshot.
+    """
+
+    iv: Optional[float]
+    delta: Optional[float]
+    gamma: Optional[float]
+    # IV minus the nearest ATM IV (signed).
+    iv_vs_atm: Optional[float]
+    # ``"OTM"`` / ``"ATM"`` / ``"ITM"`` / ``"unknown"``.
+    moneyness: str
+    # Estimated dollar delta-notional of this print.
+    estimated_delta_notional: Optional[float]
+    # Standalone gamma-$ this print would add if it were opening and
+    # fully dealer-absorbed. **Not** applied to the live chain — don't
+    # sum it against ``/v1/flow/gex``.
+    hypothetical_gex_impact_if_opening: Optional[float]
+
+
+class FlowSignal(TypedDict, total=False):
+    """One scored unusual-flow signal.
+
+    A signal is a coalesced view of one notable (block-sized) print on a
+    single contract: classification, scoring, and chain-context
+    enrichment. Same shape across ``/v1/flow/signals/{symbol}`` and
+    ``/v1/flow/signals/{symbol}/summary``'s ``top_signals``.
+    """
+
+    # Trade timestamp (ISO-8601 UTC).
+    ts: str
+    # Contract expiry (``YYYY-MM-DD``).
+    expiry: str
+    # Contract strike price.
+    strike: float
+    # ``"C"`` (call) or ``"P"`` (put).
+    right: str
+    # Upstream buy/sell/mid aggressor classification (distinct from the
+    # NBBO ``aggressor`` label).
+    side: str
+    # Trade price.
+    price: float
+    # Trade size in contracts.
+    size: int
+    # Dollar premium of this print: ``price * size * 100``.
+    premium: float
+    # Days to expiry at trade time.
+    dte: int
+    # ``"block"`` (lone block-sized print) or ``"sweep"`` (≥2 same-side
+    # prints on one contract within ~500ms).
+    structure: str
+    # NBBO position at trade: ``"above_ask"`` / ``"at_ask"`` / ``"mid"`` /
+    # ``"at_bid"`` / ``"below_bid"``.
+    aggressor: str
+    # Contract-level OI-simulator inference: ``"opening_bias"`` /
+    # ``"closing_bias"`` / ``"unknown"``. Not a per-print label.
+    open_close_bias: str
+    # Simulator confidence weight for the bias above.
+    open_close_confidence: float
+    # Signed simulator estimate of contracts opened (+) or closed (−)
+    # today on this contract.
+    contract_net_oi_delta: int
+    # ``"bullish"`` / ``"bearish"`` / ``"neutral"``. Neutral whenever
+    # ``open_close_bias == "closing_bias"`` (can't attribute on unwinds)
+    # or ``side == "mid"``.
+    intent: str
+    # 0–100 composite (components sum to this).
+    score: int
+    # ``"low"`` / ``"medium"`` / ``"high"``.
+    conviction: str
+    # Subset of ``"sweep"``, ``"block"``, ``"opening"``, ``"closing"``,
+    # ``"0dte"``, ``"whale"`` (premium ≥ $1M), ``"golden"`` (top decile
+    # in this response set *and* score ≥ 70 absolute).
+    tags: List[str]
+    score_breakdown: FlowSignalScoreBreakdown
+    enrichment: FlowSignalEnrichment
+
+
+class FlowSignalsResponse(TypedDict, total=False):
+    """Scored, classified unusual-flow feed from
+    ``GET /v1/flow/signals/{symbol}``.
+
+    Each notable print in the look-back window is coalesced into a
+    signal, scored 0–100, and ranked highest score first. Requires the
+    Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Timestamp this snapshot was computed for (ISO-8601 UTC).
+    as_of: str
+    # Look-back window applied (minutes).
+    window_minutes: int
+    # Expiration filter echoed back, or ``None``.
+    expiry: Optional[str]
+    # Spot mid at the snapshot time.
+    underlying_price: Optional[float]
+    # Settled-chain reference levels (computed once per request).
+    chain: FlowSignalsChain
+    # Number of signals returned (after server-side filtering).
+    count: int
+    # Signals, highest score first.
+    signals: List[FlowSignal]
+
+
+class FlowSignalsSummaryResponse(TypedDict, total=False):
+    """Net-directional roll-up from
+    ``GET /v1/flow/signals/{symbol}/summary``.
+
+    Sums classified premium across the window into bullish/bearish and
+    opening/closing buckets — a cheap "smart-money tilt" read for one
+    underlying. Requires the Alpha plan.
+    """
+
+    # Underlying ticker echoed from the request path.
+    symbol: str
+    # Timestamp this snapshot was computed for (ISO-8601 UTC).
+    as_of: str
+    # Look-back window applied (minutes).
+    window_minutes: int
+    # Expiration filter echoed back, or ``None``.
+    expiry: Optional[str]
+    # Spot mid at the snapshot time.
+    underlying_price: Optional[float]
+    # Total signal count in the window (full count, not the
+    # ``top_signals`` length).
+    signal_count: int
+    # Sum of signal premium with ``intent == "bullish"``.
+    bullish_premium: float
+    # Sum of signal premium with ``intent == "bearish"``.
+    bearish_premium: float
+    # ``bullish_premium - bearish_premium``.
+    net_directional_premium: float
+    # Sum of signal premium with ``open_close_bias == "opening_bias"``.
+    opening_premium: float
+    # Sum of signal premium with ``open_close_bias == "closing_bias"``.
+    closing_premium: float
+    # Highest-scoring signals (≤ 10). Same shape as ``FlowSignal``.
+    top_signals: List[FlowSignal]

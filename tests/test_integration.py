@@ -1804,3 +1804,47 @@ def test_flow_stocks_outliers(fa):
                                     "lastVwap", "lastTradeUtc",
                                     "lastTradeAgeSec"],
                  "flow/stocks/outliers.outliers[0]")
+
+
+_SIGNAL_FIELDS = ["ts", "expiry", "strike", "right", "side", "price", "size",
+                  "premium", "dte", "structure", "aggressor",
+                  "open_close_bias", "open_close_confidence",
+                  "contract_net_oi_delta", "intent", "score", "conviction",
+                  "tags", "score_breakdown", "enrichment"]
+
+
+def test_flow_signals(fa):
+    r = _flow(lambda: fa.flow_signals(FLOW_SYMBOL, window_minutes=240,
+                                       limit=10))
+    _require(r, ["symbol", "as_of", "window_minutes", "expiry",
+                "underlying_price", "chain", "count", "signals"],
+             "flow/signals")
+    assert r["symbol"] == FLOW_SYMBOL
+    _require(r["chain"], ["call_wall", "put_wall", "max_pain", "gamma_flip"],
+             "flow/signals.chain")
+    assert isinstance(r["signals"], list)
+    if r["signals"]:
+        _require(r["signals"][0], _SIGNAL_FIELDS, "flow/signals.signals[0]")
+        _require(r["signals"][0]["score_breakdown"],
+                 ["premium", "size_vs_oi", "aggressor", "sweep",
+                  "opening_bias", "tenor"],
+                 "flow/signals.signals[0].score_breakdown")
+        _require(r["signals"][0]["enrichment"],
+                 ["iv", "delta", "gamma", "iv_vs_atm", "moneyness",
+                  "estimated_delta_notional",
+                  "hypothetical_gex_impact_if_opening"],
+                 "flow/signals.signals[0].enrichment")
+
+
+def test_flow_signals_summary(fa):
+    r = _flow(lambda: fa.flow_signals_summary(FLOW_SYMBOL, window_minutes=240))
+    _require(r, ["symbol", "as_of", "window_minutes", "expiry",
+                "underlying_price", "signal_count", "bullish_premium",
+                "bearish_premium", "net_directional_premium",
+                "opening_premium", "closing_premium", "top_signals"],
+             "flow/signals/summary")
+    assert r["symbol"] == FLOW_SYMBOL
+    assert isinstance(r["top_signals"], list)
+    if r["top_signals"]:
+        _require(r["top_signals"][0], _SIGNAL_FIELDS,
+                 "flow/signals/summary.top_signals[0]")

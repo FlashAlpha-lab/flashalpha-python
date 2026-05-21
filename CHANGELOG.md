@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.1 - 2026-05-21
+
+### Added
+- `flow_signals(symbol, ...)` and `flow_signals_summary(symbol, ...)` —
+  scored, classified unusual-flow feed for one underlying. Each notable
+  print is coalesced into a signal (block/sweep, NBBO aggressor,
+  opening/closing bias, intent), scored 0-100 with a transparent
+  component breakdown, and enriched with chain context (greeks,
+  IV-vs-ATM, moneyness, estimated delta-notional). Summary endpoint
+  rolls up net bullish/bearish and opening/closing premium plus the top
+  10 signals. New `TypedDict` types: `FlowSignal`, `FlowSignalsResponse`,
+  `FlowSignalsSummaryResponse`, `FlowSignalsChain`,
+  `FlowSignalScoreBreakdown`, `FlowSignalEnrichment`. Requires Alpha.
+- Live integration tests for both signals endpoints.
+
 ## 1.0.0 - 2026-05-15
 
 ### Added

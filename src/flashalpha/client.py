@@ -38,6 +38,8 @@ if TYPE_CHECKING:
         FlowOptionRecentResponse,
         FlowOptionSummaryResponse,
         FlowPinRiskResponse,
+        FlowSignalsResponse,
+        FlowSignalsSummaryResponse,
         FlowStockBlocksResponse,
         FlowStockCumulativeResponse,
         FlowStockHistoryResponse,
@@ -478,6 +480,65 @@ class FlashAlpha:
         if window_minutes is not None:
             params["windowMinutes"] = window_minutes
         return self._get("/v1/flow/stocks/outliers", params or None)
+
+    # Flow signals (unusual-flow feed, Alpha+).
+
+    def flow_signals(
+        self,
+        symbol: str,
+        *,
+        min_score: int | None = None,
+        intent: str | None = None,
+        structure: str | None = None,
+        window_minutes: int | None = None,
+        limit: int | None = None,
+        expiry: str | None = None,
+    ) -> FlowSignalsResponse:
+        """Scored unusual-flow feed for one underlying. Requires Alpha.
+
+        Each notable print is coalesced into a signal, classified
+        (block/sweep, NBBO aggressor, opening/closing bias, intent), and
+        scored 0–100 with a transparent component breakdown. Ranked by
+        score, highest first.
+
+        ``min_score`` drops signals below the threshold; ``intent``
+        filters to ``"bullish"``/``"bearish"``/``"neutral"``;
+        ``structure`` filters to ``"block"``/``"sweep"``;
+        ``window_minutes`` sets the look-back (1–10080, default 240);
+        ``limit`` caps the response (1–500, default 50); ``expiry``
+        filters to a single ``YYYY-MM-DD`` cycle.
+        """
+        params: dict[str, Any] = {}
+        if min_score is not None:
+            params["minScore"] = min_score
+        if intent:
+            params["intent"] = intent
+        if structure:
+            params["structure"] = structure
+        if window_minutes is not None:
+            params["windowMinutes"] = window_minutes
+        if limit is not None:
+            params["limit"] = limit
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/signals/{_seg(symbol)}", params or None)
+
+    def flow_signals_summary(
+        self,
+        symbol: str,
+        *,
+        window_minutes: int | None = None,
+        expiry: str | None = None,
+    ) -> FlowSignalsSummaryResponse:
+        """Net bullish/bearish + opening/closing premium roll-up plus
+        the top 10 signals. Cheap "smart-money tilt" read. Requires Alpha.
+        """
+        params: dict[str, Any] = {}
+        if window_minutes is not None:
+            params["windowMinutes"] = window_minutes
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/signals/{_seg(symbol)}/summary", params or None)
 
     # ── Pricing & Sizing ────────────────────────────────────────────
 

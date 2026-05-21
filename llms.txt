@@ -81,7 +81,7 @@ narrative = client.exposure_narrative("SPY")
 ## Flow — live, simulation-aware (Alpha+)
 
 Intraday trade-tape-adjusted dealer exposure plus the raw options/stock
-flow feed — 22 endpoints under `/v1/flow/*`:
+flow feed — 24 endpoints under `/v1/flow/*`:
 
 - **Analytics** (snake_case): `flow_levels`, `flow_pin_risk`,
   `flow_summary`, `flow_oi`, `flow_gex`, `flow_dex`, `flow_dealer_risk`,
@@ -89,6 +89,11 @@ flow feed — 22 endpoints under `/v1/flow/*`:
   pin score, flow direction + headline GEX shift, OI simulator state,
   flow-adjusted GEX/DEX per strike, settled-vs-live dealer risk, and an
   everything-at-once bundle. Optional `expiry="YYYY-MM-DD"` slice.
+- **Unusual-flow signals** (snake_case): `flow_signals` /
+  `flow_signals_summary` — scored, classified per-print signals
+  (block/sweep, NBBO aggressor, opening/closing bias, intent) with a
+  0-100 composite score, chain-context enrichment, and a net
+  bullish/bearish + opening/closing premium roll-up.
 - **Raw flow** (camelCase wire keys): `flow_option_recent` /
   `flow_option_summary` / `flow_option_blocks` / `flow_option_history` /
   `flow_option_cumulative`, the `flow_stock_*` equivalents, and
