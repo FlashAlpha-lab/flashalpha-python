@@ -102,6 +102,92 @@ flow feed — 24 endpoints under `/v1/flow/*`:
   large blocks, per-minute buckets, cumulative net-flow series, and
   ranked leaderboards / outliers. All require the Alpha plan.
 
+## Zero-DTE Flow — intraday, simulation-aware
+
+Live intraday view of today's 0DTE dealer-positioning landscape, computed
+on effective OI (settled + intraday simulator delta):
+
+- `flow_zero_dte_snapshot` — current live 0DTE shape (same as `zero_dte`
+  plus a `flow_direction` block: amplifying / dampening / regime_flip). (Growth+)
+- `flow_zero_dte_series` — intraday time series of headline 0DTE metrics
+  (net GEX/DEX, gamma flip, walls, magnet, pin score, ATM IV, charm) +
+  cumulative dealer hedge-flow. `bar` ∈ 30s/1m/5m/15m. (Growth+)
+- `flow_zero_dte_hedge_flow` — estimated dealer hedge-flow time series,
+  projectable to `all`/`calls`/`puts`. (Growth+)
+- `flow_zero_dte_heatmap` — per-strike intraday heatmap of gex/dex/vex/chex/
+  oi/signed_flow, raw or delta mode. (Alpha+)
+- `flow_zero_dte_strike_flow` — per-strike signed aggressor flow (delta-$,
+  gamma-$, contract count per bar). (Alpha+)
+- `flow_dealer_premium` — full-tape Net Dealer Premium roll-up (VWAP-weighted). (Alpha+)
+- `flow_stock_bars` — multi-resolution OHLCV+flow bars (1s/1m/5m/15m/30m/1h/4h). (Alpha+)
+
+## Strategy Signals — uniform decision envelope
+
+Ten decision-support endpoints under `/v1/strategies/*`, each scoring one
+trading idea 0-100, classifying a regime, and returning ranked tradeable
+structures (legs, credit/debit, breakevens, edge/liquidity scores) in the
+single shared `StrategyDecisionResponse` shape:
+
+- `strategy_flow_anomaly` — directional flow imbalance (Growth+)
+- `strategy_expiry_positioning` — OPEX pin / iron fly (Basic+)
+- `strategy_zero_dte` — same-day 0DTE range compression (Growth+, needs 0DTE)
+- `strategy_dealer_regime` — dealer gamma regime (Growth+)
+- `strategy_vol_carry` — VRP carry / short vol (Alpha+)
+- `strategy_yield_enhancement` — covered call / cash-secured put (Growth+)
+- `strategy_surface_anomaly` — rich/cheap wings vs SVI fit (Alpha+)
+- `strategy_skew` — skew richness (Growth+)
+- `strategy_term_structure` — IV term-structure slope (Growth+)
+- `strategy_tail_pricing` — tail (deep-wing) pricing richness (Growth+)
+
+## Earnings Analytics
+
+Event-driven volatility analytics under `/v1/earnings/*`:
+
+- `earnings_calendar` — forward earnings calendar (Growth+)
+- `earnings_expected_move` — implied-move decomposition: earnings jump vs
+  baseline diffusion from the pre/post-event SVI term structure (Growth+)
+- `earnings_history` — past events: EPS/revenue surprises, implied-vs-actual
+  moves, realized IV crush (Growth+)
+- `earnings_iv_crush` — expected IV crush + historical crush distribution (Growth+)
+- `earnings_vrp` — earnings VRP richness assessment (Alpha+)
+- `earnings_dealer_positioning` — dealer walls / GEX buckets / charm into the event (Alpha+)
+- `earnings_strategies` — strategy-suitability scores for the event (Alpha+)
+- `earnings_screener` — cross-sectional earnings screener: vrp_richest /
+  cheapest_move / highest_crush / importance (Alpha+)
+
+## Structures — pure-math, multi-leg (POST)
+
+Deterministic functions of the legs you supply — no market-data lookup:
+
+- `structure_pnl` — at-expiry P&L curve, breakevens, max profit/loss (Basic+)
+- `structure_greeks` — aggregate Black-Scholes greeks across a multi-leg
+  position; each leg carries its own expiry + implied vol so calendars and
+  diagonals aggregate correctly (Basic+)
+
+## Volatility, dispersion & macro (additional)
+
+- `surface_svi` — live SVI params (a, b, ρ, m, σ) per expiry slice (Alpha+)
+- `exposure_sheet` — unified per-strike GEX/DEX/VEX/CHEX/DAG + Line-in-the-Sand
+  + gamma peaks + OPEX flags (Growth+)
+- `exposure_term_structure` — exposure by DTE bucket and per expiry (Growth+)
+- `exposure_basket` — weighted cross-symbol exposure aggregate (Growth+)
+- `exposure_oi_diff` — day-over-day open-interest deltas, top-N (Growth+)
+- `liquidity` — per-expiry execution score, bid-ask spreads, OI depth (Growth+)
+- `skew_term` — 25-delta skew + risk-reversal term structure (Growth+)
+- `spot_vol_correlation` — spot-vol correlation 20d/60d (Growth+)
+- `dispersion` — implied-vs-realized correlation between an index and a basket
+  (correlation premium, per-constituent contribution) for dispersion / vol-arb (Alpha+)
+- `expected_move` — straddle-implied expected move per expiry (Basic+)
+- `realized_volatility` — range-based realized vol estimators (close-to-close,
+  Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang) over 10/20/30-day
+  windows (Alpha+)
+- `volatility_forecast` — conditional vol forecasts (EWMA λ=0.94, HAR-RV,
+  GARCH(1,1) MLE); optional `dist` = student_t (default) | gaussian (Alpha+)
+- `vrp_history` — daily VRP time series for charting/backtesting (Alpha+)
+- `vix_state` — over/under-vixing regime (VIX vs SPX 20d realized vol) (Growth+)
+- `universe` — curated tier-1/tier-2 symbol directory (Public)
+- `screener_fields` — every screener-referenceable field + type (any key)
+
 ## Typed responses
 
 Every endpoint listed above has a corresponding `TypedDict` model in

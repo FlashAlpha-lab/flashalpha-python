@@ -55,6 +55,7 @@ https://lab.flashalpha.com/v1/symbols?apiKey=YOUR_API_KEY
 - [`GET /stockquote/{ticker}`](#get-stockquoteticker) — Live stock quote `Free+`
 - [`GET /optionquote/{ticker}`](#get-optionquoteticker) — Option quotes with greeks `Growth+`
 - [`GET /v1/surface/{symbol}`](#get-v1surfacesymbol) — Vol surface grid `Public`
+- [`GET /v1/surface/svi/{symbol}`](#get-v1surfacesvisymbol) — Live SVI parameters per expiry `Alpha+`
 - [`GET /v1/stock/{symbol}/summary`](#get-v1stocksymbolsummary) — Comprehensive stock summary `Public` (cached) / `Free+` (live)
 
 ### Exposure Analytics
@@ -67,7 +68,61 @@ https://lab.flashalpha.com/v1/symbols?apiKey=YOUR_API_KEY
 - [`GET /v1/exposure/levels/{symbol}`](#get-v1exposurelevelssymbol) — Key support/resistance levels `Free+`
 - [`GET /v1/exposure/narrative/{symbol}`](#get-v1exposurenarrativesymbol) — Verbal narrative analysis `Growth+`
 - [`GET /v1/exposure/zero-dte/{symbol}`](#get-v1exposurezero-dtesymbol) — Real-time 0DTE analytics `Growth+`
+- [`GET /v1/exposure/sheet/{symbol}`](#get-v1exposuresheetsymbol) — Unified per-strike sheet (GEX/DEX/VEX/CHEX/DAG + LIS + peaks) `Growth+`
+- [`GET /v1/exposure/term-structure/{symbol}`](#get-v1exposureterm-structuresymbol) — Per-greek term structure (DTE buckets + per-expiry) `Growth+`
+- [`GET /v1/exposure/basket`](#get-v1exposurebasket) — Cross-symbol basket aggregate `Growth+`
+- [`GET /v1/exposure/oi-diff/{symbol}`](#get-v1exposureoi-diffsymbol) — Day-over-day OI deltas (top changes) `Growth+`
 - [`GET /v1/maxpain/{symbol}`](#get-v1maxpainsymbol) — Max pain analysis with dealer alignment `Basic+`
+
+### Volatility (additional)
+
+- [`GET /v1/liquidity/{symbol}`](#get-v1liquiditysymbol) — Per-expiry + chain liquidity scores `Growth+`
+- [`GET /v1/volatility/skew-term/{symbol}`](#get-v1volatilityskew-termsymbol) — Skew term structure with RR / butterfly conventions `Growth+`
+- [`GET /v1/volatility/spot-vol-correlation/{symbol}`](#get-v1volatilityspot-vol-correlationsymbol) — 20d / 60d spot-vol correlation `Growth+`
+- [`GET /v1/dispersion`](#get-v1dispersion) — Implied + realized correlation across an index basket `Alpha+`
+
+### Macro
+
+- [`GET /v1/macro/vix-state`](#get-v1macrovix-state) — VIX vs SPX-realized regime classifier `Growth+`
+
+### Universe
+
+- [`GET /v1/universe`](#get-v1universe) — Curated tier-1 / tier-2 symbol directory `Public`
+
+### Flow Analytics
+
+Simulation-aware exposure that reflects intraday position changes (not just morning-broadcast settled OI). Pure additive layer — every `/v1/exposure/*` endpoint is unaffected. See [Flow vs Exposure](#flow-vs-exposure) for the difference.
+
+- [`GET /v1/flow/levels/{symbol}`](#get-v1flowlevelssymbol) — Live gamma flip + call/put walls + max pain `Growth+`
+- [`GET /v1/flow/pin-risk/{symbol}`](#get-v1flowpin-risksymbol) — Live pin-risk score with full breakdown `Growth+`
+- [`GET /v1/flow/summary/{symbol}`](#get-v1flowsummarysymbol) — At-a-glance flow direction + headline live GEX `Growth+`
+- [`GET /v1/flow/gex/{symbol}`](#get-v1flowgexsymbol) — Live GEX with per-strike profile (simulation-aware) `Growth+`
+- [`GET /v1/flow/dex/{symbol}`](#get-v1flowdexsymbol) — Live DEX with per-strike profile (simulation-aware) `Growth+`
+- [`GET /v1/flow/dealer-risk/{symbol}`](#get-v1flowdealer-risksymbol) — Settled vs live shift with direction classifier `Growth+`
+- [`GET /v1/flow/oi/{symbol}`](#get-v1flowoisymbol) — Raw OI simulator state (model input) `Alpha+`
+- [`GET /v1/flow/live/{symbol}`](#get-v1flowlivesymbol) — Headline flow bundle in one call `Alpha+`
+- [`GET /v1/flow/signals/{symbol}`](#get-v1flowsignalssymbol) — Scored, classified unusual-flow feed (sweep/block, opening bias, intent) `Alpha+`
+- [`GET /v1/flow/signals/{symbol}/summary`](#get-v1flowsignalssymbolsummary) — Net bullish/bearish + opening/closing premium roll-up `Alpha+`
+
+### Raw Flow Data
+
+Alpha-only trade-flow proxy endpoints. These return pass-through JSON from the ingest service and use `camelCase` field names.
+
+- [`GET /v1/flow/options/{symbol}/recent`](#get-v1flowoptionssymbolrecent) — Recent option trades by underlying `Alpha+`
+- [`GET /v1/flow/options/{symbol}/summary`](#get-v1flowoptionssymbolsummary) — Option trade-flow totals by underlying `Alpha+`
+- [`GET /v1/flow/options/{symbol}/blocks`](#get-v1flowoptionssymbolblocks) — Large option trades by underlying `Alpha+`
+- [`GET /v1/flow/options/{symbol}/history`](#get-v1flowoptionssymbolhistory) — Minute option-flow buckets by underlying `Alpha+`
+- [`GET /v1/flow/options/{symbol}/cumulative`](#get-v1flowoptionssymbolcumulative) — Cumulative option net-flow points `Alpha+`
+- [`GET /v1/flow/stocks/{symbol}/recent`](#get-v1flowstockssymbolrecent) — Recent stock trades `Alpha+`
+- [`GET /v1/flow/stocks/{symbol}/summary`](#get-v1flowstockssymbolsummary) — Stock trade-flow totals `Alpha+`
+- [`GET /v1/flow/stocks/{symbol}/blocks`](#get-v1flowstockssymbolblocks) — Large stock trades `Alpha+`
+- [`GET /v1/flow/stocks/{symbol}/history`](#get-v1flowstockssymbolhistory) — Minute stock-flow buckets `Alpha+`
+- [`GET /v1/flow/stocks/{symbol}/cumulative`](#get-v1flowstockssymbolcumulative) — Cumulative stock net-flow points `Alpha+`
+- [`GET /v1/flow/stocks/{symbol}/bars`](#get-v1flowstockssymbolbars) — Multi-resolution OHLCV+flow bars `Alpha+`
+- [`GET /v1/flow/options/leaderboard`](#get-v1flowoptionsleaderboard) — Option-flow buyer/seller leaderboard `Alpha+`
+- [`GET /v1/flow/options/outliers`](#get-v1flowoptionsoutliers) — Option-flow outlier scan `Alpha+`
+- [`GET /v1/flow/stocks/leaderboard`](#get-v1flowstocksleaderboard) — Stock-flow buyer/seller leaderboard `Alpha+`
+- [`GET /v1/flow/stocks/outliers`](#get-v1flowstocksoutliers) — Stock-flow outlier scan `Alpha+`
 
 ### Pricing & Sizing
 
@@ -79,11 +134,50 @@ https://lab.flashalpha.com/v1/symbols?apiKey=YOUR_API_KEY
 
 - [`GET /v1/volatility/{symbol}`](#get-v1volatilitysymbol) — Comprehensive volatility analysis `Growth+`
 - [`GET /v1/adv_volatility/{symbol}`](#get-v1adv_volatilitysymbol) — Advanced volatility analytics (SVI, variance surface, arb detection, greeks surfaces, var swap) `Alpha+`
+- [`GET /v1/expected-move/{symbol}`](#get-v1expected-movesymbol) — Straddle-implied expected move per expiry `Basic+`
 
 ### VRP Analytics
 
 - [`GET /v1/vrp/{symbol}`](#get-v1vrpsymbol) — Volatility Risk Premium dashboard (VRP spreads, z-score, percentile, directional VRP, term structure, GEX-conditioned regime, strategy scores, dealer risk, warnings, macro context) `Alpha+`
 - [`GET /v1/vrp/{symbol}/history`](#get-v1vrpsymbolhistory) — Daily VRP time series for charting and backtesting `Alpha+`
+
+### Strategy Signals
+
+Decision-support endpoints that score one trading idea and return a unified [strategy decision envelope](#strategy-decision-envelope).
+
+- [`GET /v1/strategies/flow-anomaly/{symbol}`](#get-v1strategiesflow-anomalysymbol) — Directional options-flow imbalance `Growth+`
+- [`GET /v1/strategies/expiry-positioning/{symbol}`](#get-v1strategiesexpiry-positioningsymbol) — OPEX pin-risk / iron-fly setup `Basic+`
+- [`GET /v1/strategies/zero-dte/{symbol}`](#get-v1strategieszero-dtesymbol) — Same-day range-compression read `Growth+` (+0DTE)
+- [`GET /v1/strategies/dealer-regime/{symbol}`](#get-v1strategiesdealer-regimesymbol) — Dealer gamma regime classifier `Growth+`
+- [`GET /v1/strategies/vol-carry/{symbol}`](#get-v1strategiesvol-carrysymbol) — VRP carry credit-spread selection `Alpha+`
+- [`GET /v1/strategies/yield-enhancement/{symbol}`](#get-v1strategiesyield-enhancementsymbol) — Covered-call / cash-secured-put income overlay `Growth+`
+- [`GET /v1/strategies/surface-anomaly/{symbol}`](#get-v1strategiessurface-anomalysymbol) — SVI residual rich/cheap wing detection `Alpha+`
+- [`GET /v1/strategies/skew/{symbol}`](#get-v1strategiesskewsymbol) — 25-delta skew / risk-reversal signal `Growth+`
+- [`GET /v1/strategies/term-structure/{symbol}`](#get-v1strategiesterm-structuresymbol) — ATM-IV term-structure signal `Growth+`
+- [`GET /v1/strategies/tail-pricing/{symbol}`](#get-v1strategiestail-pricingsymbol) — Downside-tail richness signal `Growth+`
+
+### Earnings
+
+- [`GET /v1/earnings/calendar`](#get-v1earningscalendar) — Upcoming earnings calendar `Growth+`
+- [`GET /v1/earnings/expected-move/{symbol}`](#get-v1earningsexpected-movesymbol) — Earnings-implied move decomposition `Growth+`
+- [`GET /v1/earnings/history/{symbol}`](#get-v1earningshistorysymbol) — Past events: surprises, moves, IV crush `Growth+`
+- [`GET /v1/earnings/iv-crush/{symbol}`](#get-v1earningsiv-crushsymbol) — Expected + historical IV-crush distribution `Growth+`
+- [`GET /v1/earnings/vrp/{symbol}`](#get-v1earningsvrpsymbol) — Earnings vol-risk-premium (implied vs realized) `Alpha+`
+- [`GET /v1/earnings/dealer-positioning/{symbol}`](#get-v1earningsdealer-positioningsymbol) — Event-scoped dealer exposure `Alpha+`
+- [`GET /v1/earnings/strategies/{symbol}`](#get-v1earningsstrategiessymbol) — Earnings strategy-suitability scores `Alpha+`
+- [`GET /v1/earnings/screener`](#get-v1earningsscreener) — Cross-sectional earnings screener `Alpha+`
+
+### Structures
+
+Pure-math multi-leg utilities — no market lookup.
+
+- [`POST /v1/structures/pnl`](#post-v1structurespnl) — At-expiry P&L curve + breakevens `Basic+`
+- [`POST /v1/structures/greeks`](#post-v1structuresgreeks) — Aggregate position greeks `Basic+`
+
+### Screener
+
+- [`POST /v1/screener`](#post-v1screener) — Cross-sectional structured screen over the live universe `Growth+`
+- [`GET /v1/screener/fields`](#get-v1screenerfields) — List queryable screener fields + types `Free+`
 
 ### Reference Data
 
@@ -115,8 +209,8 @@ Every authenticated response includes rate limit headers:
 |------|---------------|--------|
 | Free | 5 | Stock quotes, gamma exposure by strike (GEX, levels), BSM greeks, IV solver, tickers, options meta, symbols, surface, stock summary (cached for unauthenticated, live for authenticated) |
 | Basic | 100 | Everything in Free + delta/vanna/charm exposure (DEX/VEX/CHEX) + index symbols + max pain analysis |
-| Growth | 2,500 | + Exposure summary, narrative, history, 0DTE analytics, volatility analytics, option quotes, full-chain GEX (no expiry filter), Kelly sizing |
-| Alpha | Unlimited | + Advanced volatility (SVI, variance surfaces, arbitrage detection, greeks surfaces, var swap), VRP analytics (risk premium, z-score, percentile, directional VRP, term structure, GEX/vanna-conditioned regime, strategy suitability scores, dealer flow risk, macro context), SVI-smoothed IV on option quotes |
+| Growth | 2,500 | + Exposure summary, narrative, history, 0DTE analytics, volatility analytics, option quotes, full-chain GEX (no expiry filter), Kelly sizing, **flow analytics** (`/v1/flow/levels`, `/pin-risk`, `/summary`, `/gex`, `/dex`, `/dealer-risk`) |
+| Alpha | Unlimited | + Advanced volatility (SVI, variance surfaces, arbitrage detection, greeks surfaces, var swap), VRP analytics (risk premium, z-score, percentile, directional VRP, term structure, GEX/vanna-conditioned regime, strategy suitability scores, dealer flow risk, macro context), SVI-smoothed IV on option quotes, **raw OI simulator state** (`/v1/flow/oi`), **flow bundle** (`/v1/flow/live`), **unusual-flow signal feed** (`/v1/flow/signals`), and raw option/stock flow data (`/v1/flow/options/*`, `/v1/flow/stocks/*`) |
 | Enterprise | Unlimited | Full access + admin endpoints |
 
 ### Index Symbols
@@ -655,12 +749,12 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
   "hedging_estimate": {
     "spot_down_1pct": {
       "dealer_shares_to_trade": 4780000,
-      "direction": "buy",
+      "direction": "BUY",
       "notional_usd": 2852000000
     },
     "spot_up_1pct": {
       "dealer_shares_to_trade": -4780000,
-      "direction": "sell",
+      "direction": "SELL",
       "notional_usd": 2852000000
     }
   },
@@ -676,27 +770,9 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
 
 | Field | Description |
 |-------|-------------|
-| `symbol` | Requested underlying symbol |
-| `underlying_price` | Spot price used for the exposure calculation |
-| `as_of` | UTC timestamp of the exposure snapshot |
-| `gamma_flip` | Strike where net GEX crosses zero |
-| `regime` | `positive_gamma`, `negative_gamma`, `neutral`, or `undetermined` |
-| `exposures.net_gex` | Net gamma exposure in USD notional |
-| `exposures.net_dex` | Net delta exposure in USD notional |
-| `exposures.net_vex` | Net vanna exposure in USD notional |
-| `exposures.net_chex` | Net charm exposure in USD notional |
-| `interpretation.gamma` | Gamma-regime interpretation |
-| `interpretation.vanna` | Vanna-flow interpretation |
-| `interpretation.charm` | Charm/time-decay interpretation |
-| `hedging_estimate.spot_down_1pct.dealer_shares_to_trade` | Estimated shares dealers need to trade after a -1% spot move |
-| `hedging_estimate.spot_down_1pct.direction` | Lowercase `buy` or `sell` |
-| `hedging_estimate.spot_down_1pct.notional_usd` | Estimated USD notional of the hedge |
-| `hedging_estimate.spot_up_1pct.dealer_shares_to_trade` | Estimated shares dealers need to trade after a +1% spot move |
-| `hedging_estimate.spot_up_1pct.direction` | Lowercase `buy` or `sell` |
-| `hedging_estimate.spot_up_1pct.notional_usd` | Estimated USD notional of the hedge |
-| `zero_dte.net_gex` | Same-day expiration net GEX contribution |
-| `zero_dte.pct_of_total_gex` | Same-day expiration GEX as a percentage of total GEX |
-| `zero_dte.expiration` | Same-day expiration date, or `null` when unavailable |
+| `regime` | `positive_gamma`, `negative_gamma`, or `undetermined` |
+| `hedging_estimate` | Estimated dealer hedging flow if spot moves +/-1% |
+| `zero_dte` | Same-day expiration contribution to total GEX |
 
 ---
 
@@ -826,7 +902,7 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
 
 ## `GET /v1/exposure/zero-dte/{symbol}`
 
-Returns a comprehensive 0DTE (zero days to expiration) analytics view for intraday options trading. Includes gamma regime, expected move, pin risk scoring, dealer hedging estimates at ±0.5%/±1% moves, time decay acceleration, vol context, flow data, and per-strike breakdown.
+Returns a comprehensive 0DTE (zero days to expiration) analytics view for intraday options trading. Includes gamma regime (with distance-to-flip in dollars and σ), expected move, pin risk scoring with sub-score breakdown, dealer hedging estimates at ±0.10%, ±0.25%, ±0.50%, ±1.00% moves plus convexity-at-spot, time decay acceleration, vol context, flow data with ATM/top-3 concentration, key levels with wall strength and a level-cluster score, liquidity (spreads + execution score), snapshot metadata (age, contract count, data quality), and a per-strike breakdown.
 
 **Requires Growth plan or higher.**
 
@@ -836,6 +912,7 @@ Returns a comprehensive 0DTE (zero days to expiration) analytics view for intrad
 |------|----|----------|---------|-------------|
 | `symbol` | path | yes | — | Underlying symbol |
 | `strike_range` | query | no | `0.03` | Fraction of spot to include in strikes array (0.001–0.10). Aggregates always use full chain. |
+| `expiry` | query | no | today's 0DTE | Target expiry (`yyyy-MM-dd`). Selects 1DTE / 2DTE / any expiry via the same 0DTE selector; omit for today's same-day expiry. `400 invalid_expiry` if malformed. |
 
 ### Example
 
@@ -860,7 +937,9 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
     "description": "Dealers long gamma — moves dampened, mean reversion likely",
     "gamma_flip": 588.50,
     "spot_vs_flip": "above",
-    "spot_to_flip_pct": 0.33
+    "spot_to_flip_pct": 0.33,
+    "distance_to_flip_dollars": 1.92,
+    "distance_to_flip_sigmas": 1.83
   },
   "exposures": {
     "net_gex": 1842000000,
@@ -885,15 +964,26 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
     "magnet_gex": 580000000,
     "distance_to_magnet_pct": 0.07,
     "pin_score": 82,
+    "components": {
+      "oi_score": 78,
+      "proximity_score": 92,
+      "time_score": 81,
+      "gamma_score": 70
+    },
     "max_pain": 590,
     "oi_concentration_top3_pct": 41.2,
     "description": "Strong pin at 590. 82/100 pin score with 41% of OI in top 3 strikes."
   },
   "hedging": {
+    "spot_up_10bp": { "dealer_shares_to_trade": -31200, "direction": "sell", "notional_usd": -18432000 },
+    "spot_down_10bp": { "dealer_shares_to_trade": 31200, "direction": "buy", "notional_usd": 18432000 },
+    "spot_up_25bp": { "dealer_shares_to_trade": -78050, "direction": "sell", "notional_usd": -46079000 },
+    "spot_down_25bp": { "dealer_shares_to_trade": 78050, "direction": "buy", "notional_usd": 46079000 },
     "spot_up_half_pct": { "dealer_shares_to_trade": -156100, "direction": "sell", "notional_usd": -92158000 },
     "spot_down_half_pct": { "dealer_shares_to_trade": 156100, "direction": "buy", "notional_usd": 92158000 },
     "spot_up_1pct": { "dealer_shares_to_trade": -312200, "direction": "sell", "notional_usd": -184316000 },
-    "spot_down_1pct": { "dealer_shares_to_trade": 312200, "direction": "buy", "notional_usd": 184316000 }
+    "spot_down_1pct": { "dealer_shares_to_trade": 312200, "direction": "buy", "notional_usd": 184316000 },
+    "convexity_at_spot": -84210000.5
   },
   "decay": {
     "net_theta_dollars": -4820000,
@@ -908,6 +998,7 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
     "seven_dte_atm_iv": 14.8,
     "iv_ratio_0dte_7dte": 0.83,
     "vix": 16.2,
+    "skew_25d": 1.85,
     "vanna_exposure": -320000000,
     "vanna_interpretation": "vol_up_dealers_sell",
     "description": "0DTE IV at 12.3% vs 7DTE at 14.8%. Negative vanna — vol spike triggers dealer selling."
@@ -916,34 +1007,61 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
     "total_volume": 842000,
     "call_volume": 520000,
     "put_volume": 322000,
+    "net_call_minus_put_volume": 198000,
     "total_oi": 1240000,
     "call_oi": 680000,
     "put_oi": 560000,
     "pc_ratio_volume": 0.619,
     "pc_ratio_oi": 0.824,
-    "volume_to_oi_ratio": 0.679
+    "volume_to_oi_ratio": 0.679,
+    "atm_volume_share_pct": 18.4,
+    "top3_strike_volume_pct": 36.2
   },
   "levels": {
     "call_wall": 595,
     "call_wall_gex": 420000000,
+    "call_wall_strength": 0.612,
+    "distance_to_call_wall_pct": 0.78,
     "put_wall": 585,
     "put_wall_gex": -380000000,
+    "put_wall_strength": 0.547,
+    "distance_to_put_wall_pct": -0.92,
+    "distance_to_magnet_dollars": 0.42,
     "highest_oi_strike": 590,
     "highest_oi_total": 48200,
     "max_positive_gamma": 592,
-    "max_negative_gamma": 586
+    "max_negative_gamma": 586,
+    "level_cluster_score": 71
+  },
+  "liquidity": {
+    "atm_spread_pct": 0.45,
+    "weighted_spread_pct": 1.08,
+    "execution_score": 86
+  },
+  "metadata": {
+    "snapshot_age_seconds": 12.4,
+    "chain_contract_count": 412,
+    "data_quality_score": 96,
+    "greek_smoothness_score": 82
   },
   "strikes": [
     {
       "strike": 590,
+      "distance_from_spot_pct": -0.07,
+      "call_symbol": "SPY-260319-C-590",
+      "put_symbol": "SPY-260319-P-590",
       "call_gex": 450000000, "put_gex": -380000000, "net_gex": 70000000,
       "call_dex": 12500000, "put_dex": -15000000, "net_dex": -2500000,
+      "net_vex": -2400000, "net_chex": 1850000,
       "call_oi": 25000, "put_oi": 30000,
       "call_volume": 15000, "put_volume": 12000,
+      "gex_share_pct": 4.12, "oi_share_pct": 4.43, "volume_share_pct": 3.21,
       "call_iv": 0.18, "put_iv": 0.19,
       "call_delta": 0.50, "put_delta": -0.50,
       "call_gamma": 0.025, "put_gamma": 0.025,
-      "call_theta": -1.0, "put_theta": -1.0
+      "call_theta": -1.0, "put_theta": -1.0,
+      "call_mid": 1.04, "put_mid": 0.62,
+      "call_spread_pct": 1.92, "put_spread_pct": 3.22
     }
   ]
 }
@@ -956,16 +1074,53 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
 | `time_to_close_hours` | Hours until 4:00 PM ET. The single most important 0DTE context variable. |
 | `time_to_close_pct` | Percentage of trading day elapsed (0=open, 100=close) |
 | `regime` | 0DTE-specific gamma regime (separate from full-chain flip) |
+| `regime.distance_to_flip_dollars` | `|spot − gamma_flip|` in dollars |
+| `regime.distance_to_flip_sigmas` | Distance to flip in remaining-time 1σ during the session (uses ATM IV × √t_remain). Falls back to full-day 1σ when the market is closed. <1.0 = flip is well within a 1σ move |
 | `exposures.pct_of_total_gex` | 0DTE GEX as % of full-chain GEX. >50% = 0DTE dominates intraday |
 | `expected_move.remaining_1sd_*` | Shrinks in real-time as close approaches. At 9:31 AM = full day; at 3:30 PM = 27.7% of full day |
 | `expected_move.straddle_price` | ATM 0DTE straddle mid — direct market-implied expected move |
 | `pin_risk.pin_score` | 0-100 composite: OI concentration (30%), magnet proximity (25%), time remaining (25%), gamma magnitude (20%) |
+| `pin_risk.components` | Each sub-score on 0-100 before weighting — lets you see *why* the composite is high or low |
 | `pin_risk.max_pain` | Strike where total option holder intrinsic value is minimized |
-| `hedging.spot_*_half_pct` | Dealer hedging for ±0.5% moves — more relevant for 0DTE than ±1% |
+| `hedging.spot_*_10bp` / `*_25bp` / `*_half_pct` / `*_1pct` | Dealer hedging at ±0.10%, ±0.25%, ±0.50%, ±1.00% spot moves. The 10/25 bp ticks are useful for 0DTE intraday wiggle |
+| `hedging.convexity_at_spot` | Second finite-difference of net GEX across the three strikes nearest spot, in GEX-units per dollar². Curvature of the GEX profile at ATM. Sign convention: a negative-GEX **trough** at ATM (the classic short-gamma trap) produces a **positive** value because the profile curves upward; a positive-GEX **peak** at ATM produces a negative value. Magnitude tells you how sharp the local feature is |
 | `decay.theta_per_hour_remaining` | `net_theta_dollars / time_to_close_hours` — accelerates as denominator shrinks |
 | `decay.gamma_acceleration` | 0DTE ATM gamma / 7DTE ATM gamma. Typically 2-5x, can hit 10x+ near close |
 | `vol_context.iv_ratio_0dte_7dte` | <1.0 = 0DTE is "cheap" vs term structure; >1.0 = event premium |
+| `vol_context.skew_25d` | 25-delta risk reversal in IV percentage points: IV of put nearest delta=−0.25 minus IV of call nearest delta=+0.25. Positive = put-skew (downside vol bid); negative = call-skew. `null` when neither side has a contract within 0.20 of 25Δ |
 | `flow.volume_to_oi_ratio` | >1.0 = heavy day-trading (intraday flow exceeds overnight positioning) |
+| `flow.net_call_minus_put_volume` | Call volume minus put volume (signed). Positive = bullish flow |
+| `flow.atm_volume_share_pct` | Share of total volume that traded within ±0.5% of spot |
+| `flow.top3_strike_volume_pct` | Share of total volume concentrated in the 3 most-active strikes |
+| `levels.call_wall_strength` / `put_wall_strength` | Wall GEX as fraction of same-side total GEX magnitude. 1.0 = single-strike concentration; <0.2 = wall is weak |
+| `levels.distance_to_call_wall_pct` / `distance_to_put_wall_pct` | Signed % from spot to each wall (positive = above spot) |
+| `levels.distance_to_magnet_dollars` | Dollar distance from spot to the magnet strike (in addition to the percent in `pin_risk`) |
+| `levels.level_cluster_score` | 0-100. Tightness of {flip, magnet, max_pain, highest_oi, walls} relative to 1σ expected move. High = levels stack at one strike (pin setup); low = levels scattered |
+| `liquidity.atm_spread_pct` | Avg of call+put bid-ask spread (%) at the strike nearest spot that has a quote on at least one side |
+| `liquidity.weighted_spread_pct` | OI-weighted bid-ask spread, computed across the strikes within the requested `strike_range` window (not the full chain) |
+| `liquidity.execution_score` | 0-100 composite: 70% spread, 30% ATM OI depth. Heuristic — read directionally, not as a tradable threshold |
+| `metadata.snapshot_age_seconds` | Seconds since the most recent contract update — staleness check for the whole snapshot |
+| `metadata.chain_contract_count` | Number of 0DTE contracts feeding the response |
+| `metadata.data_quality_score` | 0-100. Penalises NaN greeks, missing IV, and stale snapshots |
+| `metadata.greek_smoothness_score` | 0-100. Mean absolute consecutive-strike IV diff across strikes within the requested `strike_range` window (not the full chain), mapped to 0-100. Proxy for greek stability — without intraday history we can't measure true instability, so high score = smooth IV curve at this snapshot, not necessarily a stable surface over time |
+
+### Per-strike fields
+
+Inside `strikes[]`, each entry exposes:
+
+| Field | Description |
+|-------|-------------|
+| `strike` | Strike price |
+| `distance_from_spot_pct` | Signed % from spot (positive = above) |
+| `call_symbol` / `put_symbol` | OCC-style contract key (e.g. `SPY-260319-C-590`) — usable as a quote lookup |
+| `call_gex` / `put_gex` / `net_gex` | Per-strike gamma exposure |
+| `call_dex` / `put_dex` / `net_dex` | Per-strike delta exposure |
+| `net_vex` / `net_chex` | Per-strike vanna and charm exposure |
+| `call_oi` / `put_oi` / `call_volume` / `put_volume` | Open interest and volume by side |
+| `gex_share_pct` / `oi_share_pct` / `volume_share_pct` | Share of the 0DTE chain total at this strike |
+| `call_iv` / `put_iv` / `call_delta` / `put_delta` / `call_gamma` / `put_gamma` / `call_theta` / `put_theta` | Greeks |
+| `call_mid` / `put_mid` | Mid quote in dollars |
+| `call_spread_pct` / `put_spread_pct` | Bid-ask spread as % of mid |
 
 ### No 0DTE Expiry
 
@@ -998,6 +1153,2164 @@ If the symbol has no 0DTE expiry today (e.g. SPY on Tuesday/Thursday):
 - Near close (<5 minutes), a `warnings` array is included noting potential greek instability
 - `strike_range` only filters the `strikes` array — all aggregate calculations use the full 0DTE chain
 - All calculations are pure static (no external calls beyond the initial data fetch)
+
+---
+
+## `GET /v1/exposure/sheet/{symbol}`
+
+Unified per-strike rowset joining GEX, DEX, VEX, CHEX, and DAG (delta-adjusted gamma)
+in one response, plus chain totals, the Line-in-the-Sand inflection strike, all
+gamma peaks (not just the single wall), and OPEX / triple-witching flags when an
+expiration filter is supplied.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol |
+| `expiration` | query | no | all | Single-expiry filter (`yyyy-MM-dd`). Triggers `is_opex` / `is_triple_witching` flags. |
+| `min_oi` | query | no | `0` | Drops strikes whose `call_oi + put_oi < min_oi`. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/exposure/sheet/SPY?expiration=2026-06-18"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 597.50,
+  "as_of": "2026-05-29T15:30:00Z",
+  "expiration": "2026-06-18",
+  "is_opex": true,
+  "is_triple_witching": true,
+  "totals": {
+    "net_gex": 2850000000,
+    "net_dex": -450000000,
+    "net_vex": 1200000000,
+    "net_chex": 850000000,
+    "net_dag": 1425000000
+  },
+  "lis": { "strike": 595.0, "magnitude": 1.0 },
+  "peaks": [
+    { "strike": 600, "net_gex": 850000000, "strength": 1.00, "side": "call_wall" },
+    { "strike": 590, "net_gex": -420000000, "strength": 0.49, "side": "put_wall" }
+  ],
+  "strikes": [
+    {
+      "strike": 595,
+      "call_gex": 145000000, "put_gex": -89000000, "net_gex": 56000000,
+      "call_dex": 9800000, "put_dex": -7200000, "net_dex": 2600000,
+      "call_vex": 320000, "put_vex": -180000, "net_vex": 140000,
+      "call_chex": 4500, "put_chex": -2200, "net_chex": 2300,
+      "dag": 18900000,
+      "call_oi": 15820, "put_oi": 12340
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Section / Field | Description |
+|---|---|
+| `is_opex` | True when `expiration` is the holiday-adjusted monthly OPEX (3rd Friday, shifted to Thursday when Friday is a US equity holiday — e.g. Juneteenth). |
+| `is_triple_witching` | True when `is_opex` AND month ∈ {Mar, Jun, Sep, Dec}. |
+| `totals.net_dag` | Σ over strikes of DAG = `|delta| × gamma × OI × 100 × spot² × 0.01`, sign-flipped for puts per dealer-short convention. |
+| `lis` | Strike with the largest `|d²(net_gex)/dK²|` using a non-uniform-spaced central second difference. `null` when the chain has <3 strikes or every second-difference is zero. `magnitude` is currently always `1.0` (field reserved for future relative-magnitude scoring — the strike itself is the load-bearing output today). |
+| `peaks[]` | Local maxima of `|net_gex|` whose `strength ≥ 0.1` (fraction of max `|net_gex|` in the chain). `side`: `call_wall` when `net_gex ≥ 0`, otherwise `put_wall`. |
+| `strikes[].dag` | Per-strike DAG aggregated across calls + puts at that strike. |
+| `strikes[]` greek triples | `call_*`, `put_*`, and `net_*` for gex / dex / vex / chex use the same formulas as `/v1/exposure/{gex,dex,vex,chex}`. |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiration` format (must be `yyyy-MM-dd`) |
+| `403` | Requires Growth plan or higher |
+| `404` | Symbol not found or no data |
+
+### Notes
+
+- The OPEX detector uses the same rule the historical pipeline applies: when the 3rd Friday is a US market holiday (Good Friday, Juneteenth), the OPEX date shifts to the Thursday before and the holiday Friday itself returns `is_opex = false`.
+- All exposure aggregates here are derived from **settled OI**. Use `/v1/flow/*` for the simulator-aware (live) versions.
+
+---
+
+## `GET /v1/exposure/term-structure/{symbol}`
+
+Per-greek exposure aggregated by DTE bucket and also rolled up per expiry —
+one call returns the same shape as four full-chain `/v1/exposure/*` calls,
+grouped by time. Buckets: `0-7d` / `8-30d` / `31-60d` / `61-180d` / `180d+`.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/exposure/term-structure/SPY"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 597.50,
+  "as_of": "2026-05-29T15:30:00Z",
+  "by_dte_bucket": [
+    { "bucket": "0-7d",    "dte_range": [0, 7],    "net_gex": 920000000,  "net_dex": -120000000, "net_vex":  85000000, "net_chex": 380000000, "contract_count": 412 },
+    { "bucket": "8-30d",   "dte_range": [8, 30],   "net_gex": 1280000000, "net_dex": -200000000, "net_vex": 540000000, "net_chex": 340000000, "contract_count": 1810 },
+    { "bucket": "31-60d",  "dte_range": [31, 60],  "net_gex":  460000000, "net_dex":  -85000000, "net_vex": 390000000, "net_chex":  90000000, "contract_count":  920 },
+    { "bucket": "61-180d", "dte_range": [61, 180], "net_gex":  150000000, "net_dex":  -32000000, "net_vex": 145000000, "net_chex":  35000000, "contract_count":  640 },
+    { "bucket": "180d+",   "dte_range": [181, 2147483647], "net_gex":  40000000, "net_dex":  -13000000, "net_vex": 40000000, "net_chex":  5000000, "contract_count":  220 }
+  ],
+  "by_expiry": [
+    { "expiration": "2026-05-30", "dte": 1,  "is_opex": false, "is_triple_witching": false, "net_gex": 320000000, "net_dex": -50000000, "net_vex": 25000000, "net_chex": 180000000, "pct_of_chain_gex": 10.91 },
+    { "expiration": "2026-06-18", "dte": 20, "is_opex": true,  "is_triple_witching": true,  "net_gex": 980000000, "net_dex": -160000000, "net_vex": 420000000, "net_chex": 260000000, "pct_of_chain_gex": 33.42 }
+  ]
+}
+```
+
+### Response Fields
+
+| Section / Field | Description |
+|---|---|
+| `by_dte_bucket[].bucket` | Bucket name. |
+| `by_dte_bucket[].dte_range` | Inclusive `[lower, upper]` DTE bounds (final bucket carries `int.MaxValue` as the upper bound). |
+| `by_dte_bucket[].net_*` | Sum of GEX / DEX / VEX / CHEX over every contract whose DTE falls in the bucket. |
+| `by_dte_bucket[].contract_count` | Number of contracts feeding the bucket. |
+| `by_expiry[]` | One row per expiry, ordered ascending. `is_opex` / `is_triple_witching` use the holiday-adjusted rule. |
+| `by_expiry[].pct_of_chain_gex` | This expiry's `|net_gex|` as a share of `Σ |net_gex|` across all expiries (0-100). |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `403` | Requires Growth plan or higher |
+| `404` | Symbol not found or no data |
+
+### Notes
+
+- Buckets that match no contracts are omitted from `by_dte_bucket` rather than emitted with zeros.
+- `pct_of_chain_gex` is `0` for every row when the chain's total `|net_gex|` is zero (safe-divide guard).
+
+---
+
+## `GET /v1/exposure/basket`
+
+Weighted cross-symbol aggregate of GEX / DEX / VEX / CHEX across up to 50
+user-supplied symbols. Equal weights when `weights` is omitted; otherwise
+normalised to sum to 1. Symbols with no available data are dropped, surviving
+weights are re-normalised, and the dropped tickers are reported in
+`missing_symbols`.
+
+**Requires Growth plan or higher.** Targets the "multi-symbol scanners" Growth persona.
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbols` | query | yes | Comma-separated symbols. Max 50, duplicates de-duped. |
+| `weights` | query | no | Comma-separated; same length as `symbols`. Defaults to equal weight. Negative values rejected; sum-zero rejected. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/exposure/basket?symbols=AAPL,MSFT,NVDA&weights=0.4,0.3,0.3"
+```
+
+### Response `200`
+
+```json
+{
+  "as_of": "2026-05-29T15:30:00Z",
+  "constituent_count": 3,
+  "missing_symbols": [],
+  "aggregate": {
+    "net_gex": 1640000000,
+    "net_dex": -210000000,
+    "net_vex":  580000000,
+    "net_chex": 420000000
+  },
+  "constituents": [
+    { "symbol": "AAPL", "weight": 0.40, "underlying_price": 210.45, "net_gex":  920000000, "net_dex": -120000000, "net_vex": 340000000, "net_chex": 260000000, "contribution_pct": 42.13, "regime": "positive_gamma" },
+    { "symbol": "MSFT", "weight": 0.30, "underlying_price": 432.80, "net_gex":  410000000, "net_dex":  -60000000, "net_vex": 140000000, "net_chex":  90000000, "contribution_pct": 18.77, "regime": "positive_gamma" },
+    { "symbol": "NVDA", "weight": 0.30, "underlying_price": 854.20, "net_gex":  310000000, "net_dex":  -30000000, "net_vex": 100000000, "net_chex":  70000000, "contribution_pct": 14.19, "regime": "positive_gamma" }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `constituent_count` | Number of symbols that actually contributed (after drops). |
+| `missing_symbols[]` | Symbols requested but with no `MarketDataStore` data (invalid, illiquid, or still warming). |
+| `aggregate.net_*` | `Σ wᵢ × net_{greek}_i` after weight renormalisation. |
+| `constituents[].weight` | Renormalised weight applied to this symbol (sums to 1 across the response). |
+| `constituents[].contribution_pct` | `|wᵢ × net_gex_i| / Σ |wⱼ × net_gex_j|`, expressed 0-100. Uses **weighted** GEX (not raw `|net_gex|`) so a tiny-weight, large-GEX symbol doesn't dominate the display when its influence on the aggregate is small. |
+| `constituents[].regime` | `positive_gamma` when `net_gex ≥ 0`, else `negative_gamma`. |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | `missing_symbols` / `too_many_symbols` / `invalid_weights` / `weight_count_mismatch` |
+| `403` | Requires Growth plan or higher |
+| `404` | `no_data` — none of the requested symbols had data |
+
+### Notes
+
+- Underlying greeks for each symbol come from the same on-demand poller as `/v1/exposure/*`. First-touch symbols may briefly surface in `missing_symbols` while data warms — repeat the call after a moment.
+- The endpoint does not pre-validate index/ETF tier gating per constituent — the rest of the API does that on direct requests.
+- One HTTP call = one quota debit, independent of how many symbols are passed in `symbols=`.
+
+---
+
+## `GET /v1/liquidity/{symbol}`
+
+Per-expiry execution score (0-100), ATM bid-ask spread %, OI-weighted spread %,
+ATM OI depth, plus chain-level OI-weighted score and best/worst expiry. Each
+expiry carries a label: `tight` (≥75) / `normal` (≥50) / `wide` (≥20) /
+`illiquid` (<20).
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/liquidity/SPY"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 597.50,
+  "as_of": "2026-05-29T15:30:00Z",
+  "chain_execution_score": 78,
+  "best_expiry": "2026-05-30",
+  "worst_expiry": "2027-01-15",
+  "thin_expiry_count": 1,
+  "expiries": [
+    { "expiration": "2026-05-30", "dte": 1,   "atm_spread_pct": 0.45, "weighted_spread_pct": 1.10, "atm_oi": 48200, "execution_score": 86, "label": "tight" },
+    { "expiration": "2026-06-18", "dte": 20,  "atm_spread_pct": 0.78, "weighted_spread_pct": 1.95, "atm_oi": 31400, "execution_score": 68, "label": "normal" },
+    { "expiration": "2027-01-15", "dte": 231, "atm_spread_pct": null, "weighted_spread_pct": null, "atm_oi":   120, "execution_score":  8, "label": "illiquid" }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `chain_execution_score` | OI-weighted average of per-expiry `execution_score` across the chain (0-100). |
+| `best_expiry` / `worst_expiry` | Expirations with the highest / lowest `execution_score`. |
+| `thin_expiry_count` | Number of expiries labelled `illiquid`. |
+| `expiries[].atm_spread_pct` | Average bid-ask spread % at the strike closest to spot, across the side(s) that quote. `null` when neither side quotes. |
+| `expiries[].weighted_spread_pct` | OI-weighted bid-ask spread % across contracts in the expiry that **both** carry OI (`> 0`) and quote a valid spread (`ask > bid > 0`). `null` when no contract satisfies both. |
+| `expiries[].atm_oi` | Sum of call+put OI at the strike closest to spot. |
+| `expiries[].execution_score` | 0-100. Composite: 70% spread-tightness (exp-decay) + 30% ATM-OI depth (5000 contracts saturates). Same formula as `/v1/exposure/zero-dte`'s `liquidity.execution_score`. |
+| `expiries[].label` | Discrete bucket derived from `execution_score` per the thresholds above. |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `403` | Requires Growth plan or higher |
+| `404` | Symbol not found or no options data |
+
+### Notes
+
+- The score is heuristic — read the **label and direction** of the number rather than treating any threshold as a hard tradability rule.
+- Expirations with all-zero OI or only one-sided quotes still land in the response — they typically score 0 and label `illiquid`.
+- `best_expiry` is always non-null when at least one expiry exists. When every score ties at 0, the first-ranked row (stable order = first by expiry date) wins by default. Read `chain_execution_score` alongside it to judge whether "best" actually means tradable.
+
+---
+
+## `GET /v1/volatility/skew-term/{symbol}`
+
+Skew term structure with the vol-desk naming conventions vol-aware
+discretionary traders learn from Volland / Wizard-of-Ops content. For each
+expiry: ATM IV, 25Δ and 10Δ wing IVs, and the three named conventions —
+`skew_25d`, `risk_reversal_25d`, `butterfly_25d` — plus `tail_convexity`.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/volatility/skew-term/SPY"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 597.50,
+  "as_of": "2026-05-29T15:30:00Z",
+  "expiries": [
+    {
+      "expiry": "2026-05-30", "dte": 1,
+      "atm_iv": 12.30,
+      "put_25d_iv": 15.80, "call_25d_iv": 11.10,
+      "put_10d_iv": 18.40, "call_10d_iv": 10.20,
+      "skew_25d": 4.70,
+      "risk_reversal_25d": -4.70,
+      "butterfly_25d": 1.15,
+      "tail_convexity": -0.90
+    },
+    {
+      "expiry": "2026-06-18", "dte": 20,
+      "atm_iv": 14.50,
+      "put_25d_iv": 17.20, "call_25d_iv": 13.10,
+      "put_10d_iv": 20.10, "call_10d_iv": 12.40,
+      "skew_25d": 4.10,
+      "risk_reversal_25d": -4.10,
+      "butterfly_25d": 0.65,
+      "tail_convexity": 0.20
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Definition |
+|---|---|
+| `atm_iv` | At-the-money IV (%) from the BSM-IV contract closest to ATM (`ComputeSkewProfilesFromGreeks` — same path as `/v1/volatility/{symbol}`'s `skew_profiles[]`; no SVI fit involved). |
+| `put_25d_iv` / `call_25d_iv` | IV (%) at delta ≈ ±0.25 — actual contract lookup, not surface-interpolated. |
+| `put_10d_iv` / `call_10d_iv` | IV (%) at delta ≈ ±0.10. |
+| `skew_25d` | `put_25d_iv − call_25d_iv`. Positive ⇒ put skew dominant. |
+| `risk_reversal_25d` | `call_25d_iv − put_25d_iv` (= `−skew_25d`). FX / vol-desk convention. |
+| `butterfly_25d` | `(call_25d_iv + put_25d_iv) / 2 − atm_iv`. Wing premium over ATM. |
+| `tail_convexity` | `(put_10d − put_25d) − (put_25d − atm)` — second difference of the put wing. Positive ⇒ steep tail. |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `403` | Requires Growth plan or higher |
+| `404` | Symbol not found, no options data, or no SVI fits available |
+
+### Notes
+
+- The math is identical to the `skew_profiles[]` block returned by `/v1/volatility/{symbol}`; this endpoint just projects to a flatter term-structure shape and adds the `risk_reversal_25d` / `butterfly_25d` aliases.
+- Expirations that don't have contracts close enough to the ±25Δ / ±10Δ targets to populate the wing IVs are dropped silently.
+
+---
+
+## `GET /v1/dispersion`
+
+Demeterfi-Derman-Kani implied correlation between an index and a user-supplied
+basket of constituents, paired with a 1-factor realized correlation over a
+configurable lookback. Returns `correlation_premium = implied − realized` and
+per-constituent contribution to basket vol (sorted descending).
+
+**Requires Alpha plan or higher.** Vol-arb / dispersion-trading math — the
+"quants, vol desks, systematic researchers" Alpha persona.
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `index` | query | yes | — | Index symbol (e.g. `SPX`, `NDX`, `RUT`). Must have data loaded. |
+| `symbols` | query | yes | — | Comma-separated constituent symbols (max 50, de-duped). |
+| `weights` | query | no | equal | Comma-separated; non-negative; normalised to sum 1. |
+| `horizon_days` | query | no | `20` | Lookback window in days for realized correlation. Clamped to `[5, 252]`. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/dispersion?index=SPX&symbols=AAPL,MSFT,NVDA&weights=0.5,0.3,0.2&horizon_days=20"
+```
+
+### Response `200`
+
+```json
+{
+  "as_of": "2026-05-29T15:30:00Z",
+  "index": "SPX",
+  "constituent_count": 3,
+  "missing_symbols": [],
+  "horizon_days": 20,
+  "implied_correlation": 0.412,
+  "realized_correlation": 0.385,
+  "correlation_premium": 0.027,
+  "implied_vol_index": 0.138,
+  "implied_vol_basket": 0.224,
+  "top_contributors": [
+    { "symbol": "NVDA", "weight": 0.20, "iv": 0.46, "contribution_to_basket_vol": 0.092 },
+    { "symbol": "AAPL", "weight": 0.50, "iv": 0.18, "contribution_to_basket_vol": 0.090 },
+    { "symbol": "MSFT", "weight": 0.30, "iv": 0.14, "contribution_to_basket_vol": 0.042 }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `constituent_count` | Number of constituents that survived to the calculator (after drops in `missing_symbols`). |
+| `implied_correlation` | `ρ = (σ²_idx − Σ wᵢ² σᵢ²) / ((Σ wᵢ σᵢ)² − Σ wᵢ² σᵢ²)`. `null` when the denominator is non-positive (degenerate basket — e.g. single constituent or all-zero vols). |
+| `realized_correlation` | Basket-weight-weighted average of `Pearson(log_returns(constituent), log_returns(index))` over the horizon. Weights are the supplied basket weights (renormalised across survivors), **not OI weights**. `null` when no constituent's Pearson is computable (flat / empty closes). |
+| `correlation_premium` | `implied − realized`. `null` when either side is `null`. Positive ⇒ market pricing in more correlation than realized. |
+| `implied_vol_index` | The index's ATM IV (decimal, e.g. `0.138` = 13.8%). |
+| `implied_vol_basket` | `Σ wᵢ σᵢ` after weight renormalisation across surviving constituents. |
+| `top_contributors[]` | Sorted descending by `contribution_to_basket_vol = wᵢ × σᵢ`. `Σ contribution == implied_vol_basket` by construction. |
+| `missing_symbols[]` | Constituents requested but dropped at controller time (no quote, no greeks snapshots, or no computable ATM IV). Constituents whose historical-close fetch returns empty are **kept** — they just contribute zero to the realized term. Surviving weights are renormalised internally. |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | `missing_index` / `missing_symbols` / `too_many_symbols` / `invalid_weights` / `weight_count_mismatch` |
+| `403` | Requires Alpha plan or higher |
+| `404` | `index_not_found`, `no_index_iv`, or `no_data` (no constituent survived) |
+
+### Notes
+
+- Correlation fields serialise as JSON `null` (not `NaN`) when the underlying math is undefined. Treat `null` as "not computable from this basket / window."
+- Index IV comes from the same `StockSummaryBuilder.ComputeAtmIvFromSnapshots` path as `/v1/stock/{symbol}/summary` — the index must already have options/greeks loaded.
+- The 1-factor realized correlation here ≠ the true pairwise correlation matrix. It's the weighted average of each constituent's correlation **to the index**, which is what's directly comparable to the implied figure under a 1-factor assumption.
+- This endpoint deliberately does **not** ship hardcoded SPX/NDX weight tables — you supply the basket. Future work may add saved baskets keyed by index.
+
+---
+
+## `GET /v1/exposure/oi-diff/{symbol}`
+
+Day-over-day open-interest deltas — fills the gap behind
+`/v1/exposure/narrative`'s `top_oi_changes: []` placeholder. Per-contract
+deltas (today's OI minus prior trading day's OI), top-N changes sorted by
+absolute magnitude, and call/put aggregate totals.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol |
+| `topN` | query | no | `10` | Clamped to [1, 100] |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/exposure/oi-diff/SPY?topN=5"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 597.50,
+  "as_of": "2026-05-30T15:30:00Z",
+  "prior_snapshot_available": true,
+  "total_call_oi_change": 124000,
+  "total_put_oi_change": -38000,
+  "top_oi_changes": [
+    { "strike": 600.0, "type": "C", "expiry": "2026-06-18", "today_oi": 35000, "prior_oi": 30000, "oi_change": 5000 }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `prior_snapshot_available` | `false` when no prior-day OI data has been written to the source table yet — `total_*_oi_change` are then `0` and `top_oi_changes` is empty. |
+| `total_call_oi_change` | Sum of per-contract deltas across all call contracts that have a prior-day match. |
+| `total_put_oi_change` | Same for puts. |
+| `top_oi_changes[]` | Sorted by `|oi_change|` descending. Each row carries the contract's strike, type, expiry, today's OI, prior OI, and the signed delta. |
+
+### Notes
+
+- Contracts present today but with no prior-day entry are excluded from the top-N (no delta is computable).
+- The prior-day OI lookup currently points at a stub source — once the `ExposureStrikeSnapshots` writer pipeline ships, the flag flips to `true` and deltas populate without any client change.
+- For point-in-time historical OI diffs, use `historical.flashalpha.com` with two `?at=` calls (today's date and prior trading day).
+
+---
+
+## `GET /v1/volatility/spot-vol-correlation/{symbol}`
+
+Daily Pearson correlation between spot log-returns and first-differences of
+ATM implied vol. Equity indices typically run strongly negative (vol spikes on
+spot down moves). Computed over 20-day and 60-day windows from the
+`DailyVrpSnapshots` table populated nightly by the VRP backfill job.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/volatility/spot-vol-correlation/SPY"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-30T15:30:00Z",
+  "spot_vol_correlation_20d": -0.62,
+  "spot_vol_correlation_60d": -0.58,
+  "data_points_20d": 20,
+  "data_points_60d": 60,
+  "interpretation": "Strongly inverse — vol spikes on spot down moves (typical equity regime)."
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `spot_vol_correlation_20d` | `Pearson(log_returns(spot), iv_deltas)` over the last 20 daily snapshots. `null` when either series has zero variance or fewer than 20 points exist. |
+| `spot_vol_correlation_60d` | Same over the last 60. `null` when history is too short. |
+| `data_points_*` | The actual count of returns/deltas behind each correlation (matches the window). `0` when null. |
+| `interpretation` | Label keyed off the shorter window (preferred); falls back to 60d when 20d is null. Bands: `< -0.5` strongly inverse, `< -0.2` moderately inverse, `< 0.2` decoupled, `< 0.5` mildly positive, `≥ 0.5` strongly positive. |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `404 insufficient_history` | Fewer than 3 daily snapshots exist for the symbol. |
+
+### Notes
+
+- Daily IV here is the ATM IV stored in `DailyVrpSnapshots` (computed BSM from EOD option snapshots; same path as `/v1/vrp/{symbol}/history`).
+- Inputs require both a non-null `AtmIv` and a positive `UnderlyingPrice` on each row.
+
+---
+
+## `GET /v1/macro/vix-state`
+
+Wizard-of-Ops "overvixing / undervixing" regime label for the index complex —
+compares spot VIX against SPX 20-day realized vol.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+(none)
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" https://lab.flashalpha.com/v1/macro/vix-state
+```
+
+### Response `200`
+
+```json
+{
+  "as_of": "2026-05-30T15:30:00Z",
+  "vix": 18.4,
+  "spx_rv_20d": 11.2,
+  "spread": 7.2,
+  "ratio": 1.6428,
+  "state": "overvixing",
+  "interpretation": "VIX trades 7.2pp above SPX 20d realized — premium rich, favours short-vol setups."
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `vix` | VIX spot from live `MarketDataStore.StockQuotes["VIX"].Mid`. |
+| `spx_rv_20d` | SPX 20-day annualised realized vol (%). Preferred source is the latest `DailyVrpSnapshots` row for `SPX`; falls back to live computation from Yahoo closes when no snapshot exists. |
+| `spread` | `vix − spx_rv_20d` (vol points). |
+| `ratio` | `vix / spx_rv_20d`. `null` when `spx_rv_20d == 0`. |
+| `state` | `overvixing` (spread ≥ 5), `undervixing` (spread ≤ 0), `neutral` (0 < spread < 5). |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `404 no_vix` | VIX quote unavailable in the live store. |
+| `404 no_rv_data` | No SPX history sufficient to compute RV20d (neither snapshot nor live closes). |
+
+### Notes
+
+- Thresholds (5 / 0 vol points) are calibrated against typical regimes: ~4pp average premium in quiet markets; ~0pp or inverted in crashes when RV catches up to implied.
+- This is a single-snapshot classifier — for time-series of the state, build on top of `/v1/vrp/{symbol}/history` for `SPX`.
+
+---
+
+## `GET /v1/universe`
+
+Curated tier-1 / tier-2 symbol directory — the symbols the screener
+background loop keeps pre-warmed in `MarketDataStore`. **Public — no auth
+required**, so retail evaluators can introspect coverage before subscribing.
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `sort` | query | no | `tier` | `tier` (tier-1 first, then tier-2; curator order preserved within each) or `symbol` (alphabetical). |
+| `limit` | query | no | `200` | Clamped to [1, 1000]. |
+
+### Example
+
+```bash
+curl https://lab.flashalpha.com/v1/universe?sort=symbol&limit=20
+```
+
+### Response `200`
+
+```json
+{
+  "as_of": "2026-05-30T15:30:00Z",
+  "count": 252,
+  "returned": 20,
+  "limit": 20,
+  "sort": "symbol",
+  "symbols": [
+    { "symbol": "AAPL", "tier": 1, "is_pre_warmed": true },
+    { "symbol": "AMD",  "tier": 1, "is_pre_warmed": true }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `count` | Total universe size (tier-1 ∪ tier-2, deduplicated). |
+| `returned` | `min(count, limit)`. |
+| `sort` | Echoes the effective sort (unknown values fall back to `tier`). |
+| `symbols[].tier` | 1 = high-traffic loop (fast refresh); 2 = remaining curated symbols. |
+| `symbols[].is_pre_warmed` | Currently always `true` — the screener loop keeps every universe member populated. |
+
+### Notes
+
+- Symbols outside the universe still work on any authenticated endpoint (they fetch on-demand). The universe is "guaranteed warm," not "exhaustive."
+- On Starter tier, requests for off-universe symbols 403 with `symbol_not_in_free_universe` — this endpoint lets evaluators see exactly which symbols are reachable on Free.
+
+---
+
+## `GET /v1/flow/options/{symbol}/dealer-premium`
+
+Full-tape Net Dealer Premium roll-up over a configurable window. Sums each
+side of the customer-flow tape weighted by VWAP per minute bucket. Distinct
+from `/v1/flow/signals/{symbol}/summary`, which only rolls up block-sized
+signal prints.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol |
+| `windowMinutes` | query | no | `240` | Clamped to [1, 10080] |
+| `expiry` | query | no | all | Filter to a single expiry, `yyyy-MM-dd` |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/options/SPY/dealer-premium?windowMinutes=240"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-30T15:30:00Z",
+  "window_minutes": 240,
+  "expiry": null,
+  "dealer_buy_premium": 12450000.0,
+  "dealer_write_premium": 18200000.0,
+  "net_dealer_premium": -5750000.0,
+  "total_premium": 30650000.0,
+  "trade_count": 18420,
+  "bucket_count": 240
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|---|---|
+| `dealer_buy_premium` | `Σ (sellVolume × vwap × 100)` across minute buckets — dealer is the BUYER when customer hits the bid. |
+| `dealer_write_premium` | `Σ (buyVolume × vwap × 100)` — dealer is the WRITER when customer lifts the ask. |
+| `net_dealer_premium` | `dealer_buy_premium − dealer_write_premium`. Positive ⇒ dealers net long premium in the window. |
+| `total_premium` | `dealer_buy_premium + dealer_write_premium` — total directional premium traded (excludes mid prints). |
+| `trade_count` | Sum of `tradeCount` across buckets. |
+| `bucket_count` | Number of minute buckets that fed the aggregate. |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400 invalid_expiry` | Bad `expiry` format. |
+| `502 upstream_unavailable` | Flow ingest didn't respond. |
+| `502 upstream_invalid` | Flow ingest response couldn't be parsed. |
+
+### Notes
+
+- Per-bucket premium uses the bucket's VWAP — a minute-resolution approximation. For trade-by-trade exact premium, drive from `/v1/flow/options/{symbol}/recent`.
+- Buckets with `vwap = 0` (no usable price reference) contribute zero — defensive against corrupt input.
+- Mid prints (`midVolume`) aren't attributed to either dealer side — they're customer-customer crosses where the dealer is sometimes the matching engine, not the counterparty.
+
+---
+
+## Flow vs Exposure
+
+The `/v1/exposure/*` endpoints compute against the morning-broadcast **settled OI** — stable through the session, the same value the OPRA tape reports. Use them for "what is dealer positioning right now according to the books."
+
+The simulation-aware `/v1/flow/{levels,pin-risk,summary,gex,dex,dealer-risk,oi,live}` endpoints compute against **effective OI** — settled value plus an intraday simulator estimate of position change driven by today's option flow. The simulator applies a confidence weight (currently `0.43`) to side-classified buy/sell volume to estimate how many contracts opened or closed today. Use them for "what would dealer positioning look like if today's flow really did add/remove the positions our model thinks it did."
+
+The two surfaces are independent — `/v1/exposure/*` outputs are NOT affected by anything under `/v1/flow/*`. Field names disambiguate cleanly: `gex` vs `live_gex`, `net_gex` vs `live_net_gex`, etc.
+
+### Shared simulator state
+
+Every simulation-aware flow analytics response uses the same per-contract OI state:
+
+| Field | Meaning |
+|---|---|
+| `official_oi` | Last OPRA-broadcast settled value — stable through the session |
+| `intraday_oi_delta` | Simulator's signed estimate of contracts opened (+) or closed (−) since open |
+| `oi_delta_confidence` | Per-trade confidence weight (currently `0.43` — fraction of side-classified volume assumed to open new positions) |
+| `simulated_oi` | `official_oi + intraday_oi_delta` (unclamped — may be negative on overshoot, surfaces simulator diagnostic state) |
+| `effective_oi` | `max(0, simulated_oi)` per contract — analytics-safe input fed into GEX/DEX/walls/etc. |
+
+`flow_direction` (returned by `/summary` and `/dealer-risk`) classifies the change in dealer exposure between settled and live:
+
+| Label | Meaning |
+|---|---|
+| `no_flow` | Simulator has reported zero per-contract movement on every contract — `contracts_with_flow` is `0`. Distinct from `neutral` so consumers can tell "no flow yet" from "flow exists but is small" |
+| `neutral` | Flow exists but `|shift|` is under the 5% threshold |
+| `amplifying` | Same-sign net GEX, magnitude grew (dealers more exposed) |
+| `dampening` | Same-sign net GEX, magnitude shrank (positions resolving) |
+| `regime_flip` | Sign change (positive ↔ negative gamma regime) OR regime created from zero baseline |
+
+### Expiry filter
+
+Every `/v1/flow/*` endpoint accepts an optional `?expiry=YYYY-MM-DD` query parameter that filters the chain to a single expiry before running the math. Omit the parameter to aggregate across all expiries (the default). Invalid formats return `400 Bad Request` with `{"error":"invalid_expiry"}`; an expiry with no contracts in the cached chain returns `404 Not Found`.
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/summary/SPY?expiry=2026-05-15"
+```
+
+---
+
+## `GET /v1/flow/levels/{symbol}`
+
+Live (simulation-aware) versions of the key dealer-defended price anchors: gamma flip, call wall, put wall, and max pain. Same shape as `/v1/exposure/levels/` but computed using effective OI instead of settled.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter the chain to a single expiry, `YYYY-MM-DD`. Omit to aggregate across all expiries |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/levels/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "underlying_price": 597.50,
+  "expiry": "2026-05-15",
+  "live_gamma_flip": 595.50,
+  "live_call_wall": 600,
+  "live_put_wall": 590,
+  "live_max_pain": 595
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Growth plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+---
+
+## `GET /v1/flow/pin-risk/{symbol}`
+
+Live pin-risk score (0–100) with the gamma magnet strike and a four-component breakdown (OI concentration, magnet proximity to spot, time-to-close, gamma magnitude). The current implementation uses the live full-chain GEX profile and the nearest non-past expiry for the time-to-close component. Score weights: `30% OI + 25% proximity + 25% time + 20% gamma`.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter the chain to a single expiry, `YYYY-MM-DD`. Omit to aggregate across all expiries. When supplied, `time_to_close_hours` is measured to that expiry |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/pin-risk/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "underlying_price": 597.50,
+  "expiry": "2026-05-15",
+  "live_pin_risk": 67,
+  "magnet_strike": 597.0,
+  "distance_to_magnet_pct": 0.084,
+  "time_to_close_hours": 1.234,
+  "breakdown": {
+    "oi_score": 78,
+    "proximity_score": 92,
+    "time_score": 45,
+    "gamma_score": 60
+  }
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Growth plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+### Notes
+
+- `magnet_strike` is the strike with the largest `|NetGex|` in the live profile
+- On a perfectly-balanced chain where every strike's NetGex is zero, the magnet selection is order-dependent — flagged here for completeness; very rare in practice
+- Filtering by `expiry` is the natural way to compute a 0DTE-only pin score: pass today's date
+
+---
+
+## `GET /v1/flow/summary/{symbol}`
+
+At-a-glance flow card — designed to be cheap to call across a watchlist. Returns the headline direction label, the simulator's aggregate intraday delta, and the live GEX number with its percent shift from settled.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter the chain to a single expiry, `YYYY-MM-DD`. Omit to aggregate across all expiries |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/summary/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "underlying_price": 597.50,
+  "expiry": "2026-05-15",
+  "flow_direction": "amplifying",
+  "intraday_oi_delta": 12450,
+  "contracts_with_flow": 1842,
+  "contracts_total": 4586,
+  "live_gex": 12500000000,
+  "flow_gex_pct_shift": 0.067
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Growth plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+### Notes
+
+- `flow_gex_pct_shift` is `null` when settled GEX is zero and live GEX is non-zero (mathematically undefined — regime created from no baseline). When both are zero, the value is `0`
+- `flow_direction` enum: `no_flow` / `neutral` / `amplifying` / `dampening` / `regime_flip`
+- `expiry` echoes the filter param back (or `null` when the request omitted it); `contracts_total` reflects the filtered chain when present
+
+---
+
+## `GET /v1/flow/gex/{symbol}`
+
+Full live (simulation-aware) GEX surface — same shape as `/v1/exposure/gex/` but every per-strike `call_oi`/`put_oi` reflects the simulator's effective OI estimate, and the aggregate `live_net_gex` differs from `net_gex` by the flow contribution.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter to a single expiry, `YYYY-MM-DD`. Omit for the full-chain GEX surface. Useful for term-structure analysis when called per expiry |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/gex/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "underlying_price": 597.50,
+  "expiry": "2026-05-15",
+  "live_net_gex": 12500000000,
+  "live_net_gex_label": "positive",
+  "live_gamma_flip": 595.50,
+  "strikes": [
+    {
+      "strike": 595.0,
+      "call_gex": 145000000,
+      "put_gex": -89000000,
+      "net_gex": 56000000,
+      "call_oi": 15820,
+      "put_oi": 12340,
+      "call_volume": 2150,
+      "put_volume": 1890,
+      "call_oi_change": null,
+      "put_oi_change": null
+    }
+  ]
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Growth plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+---
+
+## `GET /v1/flow/dex/{symbol}`
+
+Full live (simulation-aware) DEX surface — same shape as `/v1/exposure/dex/` but computed using effective OI.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter to a single expiry, `YYYY-MM-DD`. Omit for the full-chain DEX surface |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/dex/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "underlying_price": 597.50,
+  "expiry": "2026-05-15",
+  "live_net_dex": -450000000,
+  "strikes": [
+    {
+      "strike": 595.0,
+      "call_dex": 8500000,
+      "put_dex": -7200000,
+      "net_dex": 1300000
+    }
+  ]
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Growth plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+---
+
+## `GET /v1/flow/dealer-risk/{symbol}`
+
+Composite settled-vs-live shift metric. Reports both the settled-OI and live-OI versions of net GEX/DEX, the absolute and percent shift, the direction classifier, and a human-readable description. The primary signal for "how much has dealer positioning moved since the open?"
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter to a single expiry, `YYYY-MM-DD`. Omit to aggregate across all expiries. Use this to compare flow impact on a specific cycle (e.g., monthly OPEX) versus the full book |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/dealer-risk/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "underlying_price": 597.50,
+  "expiry": "2026-05-15",
+  "settled_net_gex": 11700000000,
+  "live_net_gex": 12500000000,
+  "flow_gex_adjustment": 800000000,
+  "flow_gex_pct_shift": 0.068,
+  "settled_net_dex": -425000000,
+  "live_net_dex": -450000000,
+  "flow_dex_adjustment": -25000000,
+  "flow_dex_pct_shift": 0.059,
+  "total_abs_delta_contracts": 47820,
+  "contracts_with_flow": 1842,
+  "flow_direction": "amplifying",
+  "description": "Flow has amplified dealer GEX by 6.8% since open. 1,842 contracts saw 47,820 contract-units of repositioning."
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Growth plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+### Notes
+
+- `flow_gex_pct_shift` and `flow_dex_pct_shift` can be `null` when the corresponding settled value is exactly zero and live is non-zero (undefined ratio — regime created from no baseline). When both are zero, the value is `0`
+- `flow_direction` enum: `no_flow` / `neutral` / `amplifying` / `dampening` / `regime_flip`
+- `total_abs_delta_contracts` sums `|effective - settled|` per contract; useful for sizing the breadth of repositioning
+
+---
+
+## `GET /v1/flow/oi/{symbol}`
+
+Raw OI simulator state — the model inputs other endpoints derive from. Surfaces all five named OI fields plus the confidence weight and contract counts. Aimed at quants, systematic researchers, and SaaS builders consuming the simulator output directly.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter to a single expiry, `YYYY-MM-DD`. Omit for the full-chain OI aggregate. Useful for per-expiry positioning research |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/oi/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "expiry": "2026-05-15",
+  "official_oi": 16222147,
+  "simulated_oi": 16234597,
+  "intraday_oi_delta": 12450,
+  "oi_delta_confidence": 0.43,
+  "effective_oi": 16234597,
+  "contracts_total": 4586,
+  "contracts_with_flow": 1842
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Alpha plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+### Notes
+
+- `official_oi` is the morning-broadcast OPRA settled value — won't change until next morning's broadcast
+- `simulated_oi` is **unclamped** (`official + intraday_delta`) — may be negative on aggregate if the simulator overshoots zero on individual contracts. Surfaces the simulator's true intent for diagnostic visibility
+- `effective_oi` clamps each contract's value to `≥ 0` before summing — this is what `/v1/flow/gex/`, `/dex/`, etc. consume
+- `oi_delta_confidence` is the per-trade weight applied to side-classified volume (currently `0.43`, calibrated against EOD residuals)
+
+---
+
+## `GET /v1/flow/live/{symbol}`
+
+Convenience bundle for headline flow analytics. It materialises the live snapshot list and per-strike profiles once, then returns the top-level OI state, live levels, live GEX/DEX totals, pin-risk score, and dealer-risk summary. It does **not** include the full per-strike `strikes` arrays from `/gex` or `/dex`, or the detailed pin-risk breakdown from `/pin-risk`.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `expiry` | query | no | Filter all sub-results in the bundle to a single expiry, `YYYY-MM-DD`. Omit for the full-chain bundle |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/live/SPY?expiry=2026-05-15"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "as_of": "2026-05-12T16:30:45Z",
+  "underlying_price": 597.50,
+  "expiry": "2026-05-15",
+  "contracts": 4586,
+  "contracts_with_flow": 1842,
+
+  "official_oi": 16222147,
+  "simulated_oi": 16234597,
+  "intraday_oi_delta": 12450,
+  "oi_delta_confidence": 0.43,
+  "effective_oi": 16234597,
+
+  "live_gex": 12500000000,
+  "live_gex_delta": -450000000,
+  "live_gamma_flip": 595.50,
+  "live_call_wall": 600,
+  "live_put_wall": 590,
+  "live_max_pain": 595,
+  "live_pin_risk": 67,
+
+  "flow_adjusted_dealer_risk": {
+    "settled_net_gex": 11700000000,
+    "live_net_gex": 12500000000,
+    "flow_gex_adjustment": 800000000,
+    "flow_gex_pct_shift": 0.068,
+    "settled_net_dex": -425000000,
+    "live_net_dex": -450000000,
+    "flow_dex_adjustment": -25000000,
+    "flow_dex_pct_shift": 0.059,
+    "total_abs_delta_contracts": 47820,
+    "flow_direction": "amplifying",
+    "description": "Flow has amplified dealer GEX by 6.8% since open. 1,842 contracts saw 47,820 contract-units of repositioning."
+  }
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format — must be `YYYY-MM-DD`. Response body: `{"error":"invalid_expiry","message":"..."}` |
+| `403` | Alpha plan or higher required |
+| `404` | Symbol not found, no greeks data, or no contracts on the requested expiry |
+
+### Notes
+
+- `live_gex_delta` is the DEX value (delta exposure), named for consistency with the `live_gex` prefix
+- `flow_adjusted_dealer_risk.flow_direction` enum: `no_flow` / `neutral` / `amplifying` / `dampening` / `regime_flip` (same classifier as `/v1/flow/dealer-risk`)
+- Overlapping fields match the individual endpoints from the same math layer; call `/v1/flow/gex`, `/dex`, or `/pin-risk` when you need per-strike arrays or the full pin-risk breakdown
+
+---
+
+## `GET /v1/flow/signals/{symbol}`
+
+Scored, classified unusual-flow feed for one underlying. Each notable (block-sized) print in the window is coalesced into a signal, classified (`block`/`sweep`, NBBO aggressor, opening/closing bias from the OI simulator, directional intent), scored 0–100 with a transparent component breakdown, and enriched with chain context (greeks, IV-vs-ATM, moneyness, estimated delta-notional). Signals are ranked highest score first.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `minScore` | query | no | Drop signals below this score (0–100, default `0`) |
+| `intent` | query | no | Filter by `bullish` / `bearish` / `neutral` |
+| `structure` | query | no | Filter by `block` / `sweep` (a lone print is a `block`; `sweep` = ≥2 same-side prints on one contract within ~500ms) |
+| `windowMinutes` | query | no | Look-back window in minutes (1–10080, default `240`) |
+| `limit` | query | no | Max signals returned (1–500, default `50`) |
+| `expiry` | query | no | Filter the chain to a single expiry, `YYYY-MM-DD` |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/signals/NVDA?minScore=70&structure=sweep&windowMinutes=240"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-16T16:30:45Z",
+  "window_minutes": 240,
+  "expiry": null,
+  "underlying_price": 900.25,
+  "chain": {
+    "call_wall": 950.0,
+    "put_wall": 850.0,
+    "max_pain": 900.0,
+    "gamma_flip": 905.0
+  },
+  "count": 1,
+  "signals": [
+    {
+      "ts": "2026-05-16T15:58:12Z",
+      "expiry": "2026-05-23",
+      "strike": 950.0,
+      "right": "C",
+      "side": "buy",
+      "price": 12.40,
+      "size": 1500,
+      "premium": 1860000.0,
+      "dte": 7,
+      "structure": "sweep",
+      "aggressor": "above_ask",
+      "open_close_bias": "opening_bias",
+      "open_close_confidence": 0.43,
+      "contract_net_oi_delta": 4200,
+      "intent": "bullish",
+      "score": 87,
+      "conviction": "high",
+      "tags": ["sweep", "opening", "whale", "golden"],
+      "score_breakdown": {
+        "premium": 22, "size_vs_oi": 18, "aggressor": 14,
+        "sweep": 12, "opening_bias": 9, "tenor": 12
+      },
+      "enrichment": {
+        "iv": 0.62,
+        "delta": 0.28,
+        "gamma": 0.0041,
+        "iv_vs_atm": 0.08,
+        "moneyness": "OTM",
+        "estimated_delta_notional": 37810500.0,
+        "hypothetical_gex_impact_if_opening": 4984267.88
+      }
+    }
+  ]
+}
+```
+
+### Notes
+
+- `score_breakdown` components sum to `score`; weights are server-tunable, so absolute contributions may shift over time while ordering stays stable
+- `open_close_bias` (`opening_bias` / `closing_bias` / `unknown`) is a **contract-level** signal from the OI simulator's net intraday delta — it is *not* a per-print opening/closing label. `contract_net_oi_delta` is that raw signed estimate; `open_close_confidence` is the simulator's confidence weight
+- `intent` is `neutral` whenever `open_close_bias` is `closing_bias` (direction can't be attributed on unwinds) or the trade `side` is `mid` (note: `side` — the upstream buy/sell/mid aggressor classification — is distinct from the NBBO `aggressor` label)
+- `structure` is always `block` or `sweep` (a lone block-sized print is a `block`); `single` is reserved and not currently emitted, so filtering `structure=single` returns nothing
+- `tags` may include `sweep`, `block`, `opening`, `closing`, `0dte`, `whale` (premium ≥ $1M), and `golden` (score in the **top decile within this response set** *and* ≥ 70 absolute — so a weak set may yield no `golden` at all)
+- `enrichment.*` fields are `null` and `moneyness` is `"unknown"` when the signal's contract isn't in the settled chain snapshot (illiquid / just-listed)
+- `hypothetical_gex_impact_if_opening` is explicitly conditional — the standalone gamma-$ this single print *would* add if it were opening and fully dealer-absorbed. It is **not** applied to the live chain (which already folds in intraday OI), so don't sum it against `/v1/flow/gex`
+- `chain` levels are settled-chain reference context, computed once per request
+- If the settled chain snapshot is unavailable for the symbol, the feed degrades rather than 404s: scoring still runs on trade + OI-simulator context, but `underlying_price` is `0`, all `chain` levels are `null`, and every `enrichment` block is null/`"unknown"`
+- Aggressor strength uses NBBO at trade (`above_ask`/`at_ask`/`mid`/`at_bid`/`below_bid`); the score weights conviction in the trade's own direction
+
+---
+
+## `GET /v1/flow/signals/{symbol}/summary`
+
+Roll-up of the scored feed for one underlying — net directional and opening/closing premium plus the top signals. Cheap to call across a watchlist for a "smart-money tilt" read.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Description |
+|------|----|----------|-------------|
+| `symbol` | path | yes | Underlying symbol |
+| `windowMinutes` | query | no | Look-back window in minutes (1–10080, default `240`) |
+| `expiry` | query | no | Filter the chain to a single expiry, `YYYY-MM-DD` |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/signals/NVDA/summary?windowMinutes=240"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "NVDA",
+  "as_of": "2026-05-16T16:30:45Z",
+  "window_minutes": 240,
+  "expiry": null,
+  "underlying_price": 900.25,
+  "signal_count": 12,
+  "bullish_premium": 18250000.0,
+  "bearish_premium": 6400000.0,
+  "net_directional_premium": 11850000.0,
+  "opening_premium": 21300000.0,
+  "closing_premium": 3350000.0,
+  "top_signals": [
+    {
+      "ts": "2026-05-16T15:58:12Z",
+      "expiry": "2026-05-23",
+      "strike": 950.0,
+      "right": "C",
+      "side": "buy",
+      "price": 12.40,
+      "size": 1500,
+      "premium": 1860000.0,
+      "dte": 7,
+      "structure": "sweep",
+      "aggressor": "above_ask",
+      "open_close_bias": "opening_bias",
+      "open_close_confidence": 0.43,
+      "contract_net_oi_delta": 4200,
+      "intent": "bullish",
+      "score": 87,
+      "conviction": "high",
+      "tags": ["sweep", "opening", "whale", "golden"],
+      "score_breakdown": {
+        "premium": 22, "size_vs_oi": 18, "aggressor": 14,
+        "sweep": 12, "opening_bias": 9, "tenor": 12
+      },
+      "enrichment": {
+        "iv": 0.62,
+        "delta": 0.28,
+        "gamma": 0.0041,
+        "iv_vs_atm": 0.08,
+        "moneyness": "OTM",
+        "estimated_delta_notional": 37810500.0,
+        "hypothetical_gex_impact_if_opening": 4984267.88
+      }
+    }
+  ]
+}
+```
+
+### Notes
+
+- `net_directional_premium` = `bullish_premium − bearish_premium`; premiums sum signal premium (price × size × 100) by classified `intent` / `open_close_bias`
+- `signal_count` is the full count in the window; `top_signals` is the same signal shape as `/v1/flow/signals/{symbol}`, capped at the 10 highest-scoring
+
+---
+
+## Zero-DTE Flow
+
+Live, intraday-aware view of today's 0DTE dealer-positioning landscape. Computed on **effective OI** (settled + the simulator's intraday delta) so the response reflects how dealer GEX has shifted since open — unlike `/v1/exposure/zero-dte/`, which uses the morning OPRA broadcast and goes stale by 10:30 AM ET.
+
+### `GET /v1/flow/zero-dte/snapshot/{symbol}` — Growth+
+
+Current live 0DTE shape for `{symbol}`. Returns the same JSON shape as `/v1/exposure/zero-dte/{symbol}` (regime, exposures, expected_move, pin_risk, hedging, decay, vol_context, flow, levels, liquidity, strikes) PLUS a `flow_direction` block:
+
+```jsonc
+{
+  "symbol": "SPY",
+  "underlying_price": 522.34,
+  "as_of": "2026-05-27T15:30:12Z",
+  "market_open": true,
+  // ...all ZeroDteResponse fields...
+  "flow_direction": {
+    "label": "amplifying",           // no_flow | neutral | amplifying | dampening | regime_flip
+    "settled_net_gex": -1.2e9,
+    "live_net_gex": -1.45e9,
+    "flow_gex_adjustment": -2.5e8,
+    "flow_gex_pct_shift": 0.208,     // null when settled GEX is 0
+    "contracts_with_flow": 412,
+    "total_abs_delta_contracts": 18432,
+    "description": "Flow has amplified dealer GEX by 20.8% since open. ..."
+  }
+}
+```
+
+**Degraded shapes** (all return 200 OK so clients can switch on the flags):
+
+- No 0DTE expiry today (most non-SPX/SPY/QQQ/IWM symbols only have 0DTE Mon/Wed/Fri):
+  ```jsonc
+  { "symbol": "TSLA", "no_zero_dte": true, "next_zero_dte_expiry": "2026-05-29",
+    "message": "No 0DTE expiry for TSLA today (Wednesday). Next expiry: 2026-05-29." }
+  ```
+- Market closed (weekend / holiday / outside 9:30–16:00 ET):
+  ```jsonc
+  { "symbol": "SPY", "session_closed": true, "last_session": "2026-05-23",
+    "message": "Market closed. Last session: 2026-05-23." }
+  ```
+
+**Errors:**
+- 403 `tier_restricted` — caller's plan is below Growth.
+- 404 `symbol_not_found` — symbol is unknown or has no live data.
+
+The companion `/series`, `/hedge-flow`, `/heatmap`, and `/strike-flow` endpoints (documented below) are now available for intraday time-series, dealer hedge-flow, and per-strike charting. Still planned for future phases: `/historical` and `/leaderboard`. See [docs/superpowers/specs/2026-05-27-zero-dte-flow-design.md](superpowers/specs/2026-05-27-zero-dte-flow-design.md).
+
+---
+
+### `GET /v1/flow/zero-dte/series/{symbol}` — Growth+
+
+Returns an intraday time series of today's 0DTE flow — one bar per sampled interval — for charting headline metrics (net GEX/DEX, gamma flip, walls, magnet, pin score/probability, regime, ATM IV, charm) and cumulative dealer hedge-flow over the session. Bars are read from the raw sampler tier (snapped to :00/:30 ET), windowed to the last `minutes`, then downsampled to the requested `bar` size by keeping the **last** sample in each bucket (so cumulative values stay current).
+
+**Requires Growth plan or higher.**
+
+**Parameters**
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol (e.g. `SPY`, `SPX`). Trimmed and upper-cased. |
+| `bar` | query | no | `30s` | Bar size. Allowed: `30s`, `1m`, `5m`, `15m`. Anything else → `400 invalid_bar`. Raw storage is 30s; larger sizes are downsampled last-in-bucket. |
+| `minutes` | query | no | `60` | Lookback window in minutes. Clamped to `1`–`390` (one full RTH session). |
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/zero-dte/series/SPY?bar=1m&minutes=120"
+```
+
+```jsonc
+{
+  "symbol": "SPY",
+  "expiration": "2026-06-05",          // today (ET); the 0DTE expiry being sampled
+  "as_of": "2026-06-05T18:45:12Z",     // server time the response was built (UTC)
+  "bar_size": "1m",                    // echoes the requested bar
+  "bars": [
+    {
+      "t": "2026-06-05T18:44:00Z",     // bar timestamp (UTC, snapped to :00/:30 ET upstream)
+      "spot": 590.42,
+      "net_gex": 1842000000,
+      "net_dex": 48200000000,
+      "gamma_flip": 588.50,            // nullable
+      "call_wall": 595.0,              // nullable
+      "put_wall": 585.0,               // nullable
+      "magnet": 590.0,                 // nullable
+      "pin_score": 82,                 // 0-100
+      "pin_probability_pct": 64.1,     // nullable
+      "regime": "positive_gamma",
+      "atm_iv": 0.123,                 // nullable
+      "charm_dollars_per_hour": -3856000, // nullable
+      "hedge_flow_call_cumulative": 18432000,  // $-units, since session open
+      "hedge_flow_put_cumulative": -9210000,
+      "hedge_flow_cumulative_all": 9222000     // call + put cumulative
+    }
+    // ... one entry per downsampled bucket in the window, ascending by t
+  ]
+}
+```
+
+**Degraded shapes:** there is no separate `no_zero_dte` / `session_closed` envelope here — when the symbol has no 0DTE samples today (no 0DTE expiry, session not yet started, market closed with no rows persisted, or an unknown/uncovered symbol), the endpoint still returns `200` with the normal wrapper and an **empty `bars` array**:
+
+```jsonc
+{
+  "symbol": "SPY",
+  "expiration": "2026-06-05",
+  "as_of": "2026-06-05T11:02:00Z",
+  "bar_size": "30s",
+  "bars": []                           // no samples in the requested window
+}
+```
+
+**Errors:**
+- 400 `invalid_bar` — `bar` was not one of `30s` / `1m` / `5m` / `15m`. Body: `{ "error": "invalid_bar", "message": "bar must be 30s|1m|5m|15m" }`.
+- 403 `tier_restricted` — caller is below the Growth plan. Body includes `status`, `error`, `message`, `current_plan`, and `required_plan: "Growth"`.
+
+---
+
+### `GET /v1/flow/zero-dte/hedge-flow/{symbol}` — Growth+
+
+Returns the estimated dealer hedge-flow time series for today's 0DTE chain — signed delta-dollars dealers are inferred to be buying/selling to stay hedged — as both per-bar increments and a running cumulative since session open. Projectable to calls only, puts only, or the combined total via `side`, without re-scanning trades (the raw tier stores both legs). Same windowing/downsampling as `/series` (last-in-bucket).
+
+**Requires Growth plan or higher.**
+
+**Parameters**
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol. Trimmed and upper-cased. |
+| `side` | query | no | `all` | Which leg to project. Allowed: `all`, `calls`, `puts`. Anything else → `400 invalid_side`. |
+| `bar` | query | no | `30s` | Bar size. Allowed: `30s`, `1m`, `5m`, `15m`. Anything else → `400 invalid_bar`. |
+| `minutes` | query | no | `60` | Lookback window in minutes. Clamped to `1`–`390`. |
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/zero-dte/hedge-flow/SPY?side=calls&bar=5m&minutes=180"
+```
+
+```jsonc
+{
+  "symbol": "SPY",
+  "expiration": "2026-06-05",          // today (ET)
+  "as_of": "2026-06-05T18:45:12Z",     // UTC
+  "side": "calls",                     // echoes the requested side (all | calls | puts)
+  "bar_size": "5m",                    // echoes the requested bar
+  "bars": [
+    {
+      "t": "2026-06-05T18:40:00Z",     // bar timestamp (UTC)
+      "bar": 1240000,                  // per-bar signed delta-dollars in this bucket
+      "cumulative": 18432000           // running sum since session open (for `side`)
+    }
+    // ... ascending by t
+  ]
+}
+```
+
+For `side=all`, `bar` and `cumulative` are the sum of the call and put legs; for `calls` / `puts` they are that single leg.
+
+**Degraded shapes:** as with `/series`, there is no `no_zero_dte` / `session_closed` envelope — no samples (no 0DTE today, pre-session, closed with no rows, or unknown symbol) returns `200` with the normal wrapper and an **empty `bars` array**:
+
+```jsonc
+{
+  "symbol": "SPY",
+  "expiration": "2026-06-05",
+  "as_of": "2026-06-05T11:02:00Z",
+  "side": "all",
+  "bar_size": "30s",
+  "bars": []
+}
+```
+
+**Errors:**
+- 400 `invalid_side` — `side` was not `all` / `calls` / `puts`. Body: `{ "error": "invalid_side", "message": "side must be all|calls|puts" }`.
+- 400 `invalid_bar` — `bar` was not one of `30s` / `1m` / `5m` / `15m`. Body: `{ "error": "invalid_bar", "message": "bar must be 30s|1m|5m|15m" }`.
+- 403 `tier_restricted` — caller is below the Growth plan. Body includes `status`, `error`, `message`, `current_plan`, and `required_plan: "Growth"`.
+
+---
+
+### `GET /v1/flow/zero-dte/heatmap/{symbol}` — Alpha+
+
+Per-strike value matrix over today's 0DTE session — the data behind a strike × time heatmap. Strikes are pulled into a top-level `strikes_grid`; each bar carries a `values` array that is **parallel by index** to `strikes_grid` (i.e. `values[strike_idx]`), the column-major shape every heatmap charting library expects.
+
+**Requires Alpha plan or higher.**
+
+**Parameters**
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol. Trimmed and upper-cased. |
+| `metric` | query | no | `gex` | Per-strike value to project. One of `gex`, `dex`, `vex`, `chex`, `oi`, `signed_flow`. Invalid → `400 invalid_metric`. |
+| `mode` | query | no | `raw` | `raw` (absolute per-bar value) or `delta` (bar-over-bar change; bar 0 stays raw). For `signed_flow`, `delta` ≡ `raw` (already a per-bar increment). Invalid → `400 invalid_mode`. |
+| `bar` | query | no | `1m` | Bar size. **Only `1m` is supported** in this phase — `5m`/`15m` are planned; any other value → `400 bar_unavailable`. |
+| `minutes` | query | no | `60` | Lookback window in minutes. Clamped to `1`–`390`. |
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/zero-dte/heatmap/SPY?metric=gex&mode=raw&bar=1m&minutes=120"
+```
+
+```jsonc
+{
+  "symbol": "SPY",
+  "underlying_price": 590.42,
+  "expiration": "2026-06-05",
+  "metric": "gex",                     // echoes the requested metric
+  "mode": "raw",                       // echoes the requested mode
+  "bar_size": "1m",                    // echoes the requested bar
+  "as_of": "2026-06-05T18:45:12Z",     // UTC
+  "tier_used": "raw",
+  "strikes_grid": [585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595],
+  "bars": [
+    {
+      "t": "2026-06-05T18:44:00Z",     // bar timestamp (UTC)
+      "spot": 590.42,
+      "values": [ -1.2e8, -9.0e7, -4.1e7, 0, 3.3e7, 8.1e8, 2.2e8, 1.1e8, 4.0e7, 1.0e7, -5.0e6 ]
+      // values[i] is the metric for strikes_grid[i]
+    }
+    // ... ascending by t
+  ],
+  "gap_intervals": []                  // reserved for sampler-gap intervals; not yet populated
+}
+```
+
+**Degraded shapes:** no 0DTE samples in the window (no 0DTE today, pre-session, market closed with no rows, or unknown symbol) returns `200` with empty `strikes_grid` and `bars` arrays — there is no `no_zero_dte` / `session_closed` envelope.
+
+**Errors:**
+- 400 `bar_unavailable` — `bar` is anything other than `1m`.
+- 400 `invalid_metric` — `metric` not in `gex|dex|vex|chex|oi|signed_flow`.
+- 400 `invalid_mode` — `mode` is not `raw`/`delta`.
+- 400 `no_strike_data_for_window` — rows exist in the window but none carry per-strike data (legacy v1 rows).
+- 403 `tier_restricted` — caller is below the Alpha plan.
+
+---
+
+### `GET /v1/flow/zero-dte/strike-flow/{symbol}` — Alpha+
+
+Per-strike signed aggressor flow over today's 0DTE session — for each bar and each strike, the signed delta-dollars, signed gamma-dollars, and contract count (per-bar increments, not cumulative). Three parallel arrays per bar, each index-aligned to the top-level `strikes_grid` (the shape bubble-grid plotters want).
+
+**Requires Alpha plan or higher.**
+
+**Parameters**
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol. Trimmed and upper-cased. |
+| `bar` | query | no | `1m` | Bar size. **Only `1m` is supported** in this phase — `5m`/`15m` are planned; any other value → `400 bar_unavailable`. |
+| `minutes` | query | no | `60` | Lookback window in minutes. Clamped to `1`–`390`. |
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/zero-dte/strike-flow/SPY?bar=1m&minutes=120"
+```
+
+```jsonc
+{
+  "symbol": "SPY",
+  "underlying_price": 590.42,
+  "expiration": "2026-06-05",
+  "bar_size": "1m",
+  "as_of": "2026-06-05T18:45:12Z",     // UTC
+  "tier_used": "raw",
+  "strikes_grid": [588, 589, 590, 591, 592],
+  "bars": [
+    {
+      "t": "2026-06-05T18:44:00Z",                    // bar timestamp (UTC)
+      "spot": 590.42,
+      "signed_delta_dollars": [ -120000, 45000, 880000, 210000, -30000 ],  // per strike
+      "signed_gamma_dollars": [ 18000, 24000, 96000, 31000, 9000 ],
+      "contracts": [ 1200, 1850, 5400, 2100, 640 ]
+    }
+    // ... ascending by t
+  ],
+  "gap_intervals": []
+}
+```
+
+**Degraded shapes:** no 0DTE samples returns `200` with empty `strikes_grid` and `bars` (no flag envelope), same as `/series` and `/heatmap`. The `gap_intervals` array is reserved and not yet populated.
+
+**Errors:**
+- 400 `bar_unavailable` — `bar` is anything other than `1m`.
+- 403 `tier_restricted` — caller is below the Alpha plan.
+
+---
+
+## Raw Flow Data
+
+These Alpha-only endpoints proxy intraday trade-flow JSON from the ingest service. Unlike the analytics endpoints above, these are pass-through responses and use `camelCase` field names. Cross-symbol scans are cached for 30 seconds.
+
+Common errors:
+
+| Status | Description |
+|--------|-------------|
+| `403` | Alpha plan or higher required |
+| `502` | Flow data source did not respond |
+
+---
+
+## `GET /v1/flow/options/{symbol}/recent`
+
+Recent option trades across all contracts for an underlying, newest first.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Underlying symbol |
+| `limit` | query | no | `50` | Number of trades, clamped to `1..500` |
+| `expiry` | query | no | - | Filter to a single expiration cycle, `YYYY-MM-DD`. Omit to include all expiries. Useful for 0DTE-only or OPEX-only views |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase underlying symbol |
+| `expiry` | string/null | Echo of the `?expiry=` filter, or `null` when no filter was applied |
+| `count` | integer | Number of trades returned |
+| `totalAvailable` | integer | Trades available in the in-memory buffer (post-filter) |
+| `trades[]` | array | Recent trade rows |
+
+`trades[]`: `ts`, `instrumentId`, `expiry`, `strike`, `right`, `price`, `size`, `side`, `isBlock`, `bid`, `ask`.
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format. Response: `{"error":"invalid_expiry","message":"..."}` |
+
+---
+
+## `GET /v1/flow/options/{symbol}/summary`
+
+Option trade-flow totals across all contracts for an underlying.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Underlying symbol |
+| `expiry` | query | no | - | Filter to a single expiration cycle, `YYYY-MM-DD`. Aggregates only contracts on that expiry |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase underlying symbol |
+| `expiry` | string/null | Echo of the `?expiry=` filter, or `null` when no filter was applied |
+| `contractsWithTrades` | integer | Option contracts with at least one buffered trade (post-filter) |
+| `totalTrades` | integer | Total buffered option trades |
+| `buyVolume` | integer | Buy-classified contract volume |
+| `sellVolume` | integer | Sell-classified contract volume |
+| `midVolume` | integer | Mid/unknown-side contract volume |
+| `netVolume` | integer | `buyVolume - sellVolume` |
+| `biggestSingleTrade` | integer | Largest single option trade size |
+| `lastTradeUtc` | string/null | Latest trade timestamp |
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format. Response: `{"error":"invalid_expiry","message":"..."}` |
+
+---
+
+## `GET /v1/flow/options/{symbol}/blocks`
+
+Large option trades across all contracts for an underlying, newest first.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Underlying symbol |
+| `minSize` | query | no | `100` | Minimum contract size |
+| `expiry` | query | no | - | Filter to a single expiration cycle, `YYYY-MM-DD` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase underlying symbol |
+| `expiry` | string/null | Echo of the `?expiry=` filter, or `null` when no filter was applied |
+| `minSize` | integer | Minimum block size applied |
+| `count` | integer | Number of block trades returned |
+| `blocks[]` | array | Block rows |
+
+`blocks[]`: `ts`, `expiry`, `strike`, `right`, `price`, `size`, `side`.
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format. Response: `{"error":"invalid_expiry","message":"..."}` |
+
+---
+
+## `GET /v1/flow/options/{symbol}/history`
+
+Minute option-flow buckets rolled up by underlying, newest first.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Underlying symbol |
+| `minutes` | query | no | `60` | Window size, clamped to `1..10080` |
+| `expiry` | query | no | - | Filter the rollup to a single expiration cycle, `YYYY-MM-DD`. Each minute bucket then sums only contracts on that expiry |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase underlying symbol |
+| `expiry` | string/null | Echo of the `?expiry=` filter, or `null` when no filter was applied |
+| `minutes` | integer | Requested/effective minute window |
+| `count` | integer | Number of buckets returned |
+| `buckets[]` | array | Minute buckets |
+
+`buckets[]`: `ts`, `buyVolume`, `sellVolume`, `midVolume`, `netVolume`, `tradeCount`, `biggestTrade`, `vwap`, `high`, `low`.
+
+### Retention
+
+Minute buckets live in an in-memory ring sized at ~1,500 buckets (~25 hours of intraday history). Past that they evict. SQL snapshot persistence is current-day only.
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format. Response: `{"error":"invalid_expiry","message":"..."}` |
+
+---
+
+## `GET /v1/flow/options/{symbol}/cumulative`
+
+Running cumulative net option flow by underlying.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Underlying symbol |
+| `minutes` | query | no | `240` | Window size, clamped to `1..10080` |
+| `expiry` | query | no | - | Filter the rollup to a single expiration cycle, `YYYY-MM-DD` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase underlying symbol |
+| `expiry` | string/null | Echo of the `?expiry=` filter, or `null` when no filter was applied |
+| `minutes` | integer | Requested/effective minute window |
+| `count` | integer | Number of points returned |
+| `points[]` | array | Cumulative flow points |
+
+`points[]`: `ts`, `netVolume`, `cumulative`, `vwap`, `tradeCount`.
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| `400` | Invalid `expiry` format. Response: `{"error":"invalid_expiry","message":"..."}` |
+
+---
+
+## `GET /v1/flow/stocks/{symbol}/recent`
+
+Recent stock trades for a symbol, newest first.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Stock symbol |
+| `limit` | query | no | `50` | Number of trades, clamped to `1..500` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase stock symbol |
+| `count` | integer | Number of trades returned |
+| `totalAvailable` | integer | Trades available in the in-memory buffer |
+| `trades[]` | array | Recent trade rows |
+
+`trades[]`: `ts`, `price`, `size`, `side`, `isBlock`, `bid`, `ask`.
+
+---
+
+## `GET /v1/flow/stocks/{symbol}/summary`
+
+Stock trade-flow totals for a symbol.
+
+**Requires Alpha plan or higher.**
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase stock symbol |
+| `totalTrades` | integer | Total buffered stock trades |
+| `buyVolume` | integer | Buy-classified share volume |
+| `sellVolume` | integer | Sell-classified share volume |
+| `midVolume` | integer | Mid/unknown-side share volume |
+| `netVolume` | integer | `buyVolume - sellVolume` |
+| `biggestSingleTrade` | integer | Largest single stock trade size |
+| `lastTradeUtc` | string/null | Latest trade timestamp; omitted when no stock trade buffer exists |
+
+---
+
+## `GET /v1/flow/stocks/{symbol}/blocks`
+
+Large stock trades for a symbol, newest first.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Stock symbol |
+| `minSize` | query | no | `10000` | Minimum share size |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase stock symbol |
+| `minSize` | integer | Minimum block size applied |
+| `count` | integer | Number of block trades returned |
+| `blocks[]` | array | Block rows |
+
+`blocks[]`: `ts`, `price`, `size`, `side`, `bid`, `ask`.
+
+---
+
+## `GET /v1/flow/stocks/{symbol}/history`
+
+Minute stock-flow buckets, newest first.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Stock symbol |
+| `minutes` | query | no | `60` | Window size, clamped to `1..10080` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase stock symbol |
+| `minutes` | integer | Requested/effective minute window |
+| `count` | integer | Number of buckets returned |
+| `buckets[]` | array | Minute buckets |
+
+`buckets[]`: `ts`, `buyVolume`, `sellVolume`, `midVolume`, `netVolume`, `tradeCount`, `biggestTrade`, `vwap`, `open`, `close`, `high`, `low`.
+
+---
+
+## `GET /v1/flow/stocks/{symbol}/cumulative`
+
+Running cumulative net stock flow.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | Stock symbol |
+| `minutes` | query | no | `240` | Window size, clamped to `1..10080` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase stock symbol |
+| `minutes` | integer | Requested/effective minute window |
+| `count` | integer | Number of points returned |
+| `points[]` | array | Cumulative flow points |
+
+`points[]`: `ts`, `netVolume`, `cumulative`, `vwap`, `tradeCount`.
+
+---
+
+## `GET /v1/flow/stocks/{symbol}/bars`
+
+Multi-resolution OHLCV+flow bars derived from the live trade tape. Backed by an in-memory 1-second ring per symbol; higher resolutions are computed on read by streaming roll-up. Bars are returned **oldest-first** for chart consumers (contrast `/history`, which is newest-first).
+
+The leftmost bar's start time is always boundary-aligned to the resolution — for a 15-minute resolution requested at 10:17 with `minutes=15`, the leftmost bar starts at 10:00 (not 10:02). The right-most bar may be partial (the current bar is still accumulating).
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Stock symbol (uppercased server-side) |
+| `resolution` | query | yes | — | One of `1s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`. Anything else returns `400 {"error":"invalid_resolution"}`. |
+| `minutes` | query | no | `60` | Look-back window. Clamped to `[1, 1440]` (24h matches the in-memory ring cap). |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Uppercase symbol |
+| `resolution` | string | Echo of requested resolution |
+| `minutes` | integer | Effective window |
+| `count` | integer | Number of bars returned |
+| `dataStartUtc` | string \| null | Timestamp of the oldest 1-second bucket in the in-memory ring (UTC), or `null` when no history exists. Use this to detect partial coverage when requesting `minutes=1440` against a process that started recently — if `dataStartUtc > now - minutes*60`, the response covers a shorter window than requested. |
+| `bars[]` | array | Oldest-first bars |
+
+`bars[]` entries: `ts` (bar start, UTC), `closed` (bool — see below), `open`, `high`, `low`, `close`, `vwap`, `buyVolume`, `sellVolume`, `midVolume`, `netVolume`, `tradeCount`, `biggestTrade`.
+
+The `closed` flag is `true` once wall-clock time has advanced past `[ts, ts + resolution)` — i.e. the bar is final and won't accept further updates. The right-edge bar is typically `closed: false` (still accumulating); all preceding bars are `closed: true`. Chart libraries that distinguish in-progress from final bars (e.g. TradingView, Lightweight Charts) should use this flag directly rather than re-deriving it client-side, since client clock skew makes the derivation unreliable.
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/flow/stocks/SPY/bars?resolution=5m&minutes=60"
+```
+
+### Notes
+
+- 1-second history is **in-memory only** and dropped across container restarts (charts re-fill forward from process start). `dataStartUtc` surfaces the effective coverage so clients can tell "process is too young to answer" from "symbol is quiet".
+- Seconds with zero trades are not emitted — gaps in the bar series reflect a quiet symbol, not data loss.
+- Use `/history` (returns 1-minute buckets newest-first, persisted across restarts) when you need long-term replay; `/bars` for live chart feeds.
+
+---
+
+## `GET /v1/flow/options/leaderboard`
+
+Cross-symbol option-flow buyers and sellers ranked by net notional.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `n` | query | no | `10` | Rows per side; effective max is `50` |
+| `windowMinutes` | query | no | `240` | Lookback window, clamped to `1..10080` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `generatedUtc` | string | Generation timestamp |
+| `n` | integer | Effective rows per side |
+| `windowMinutes` | integer | Effective lookback window |
+| `buyers[]` | array | Positive net-notional rows |
+| `sellers[]` | array | Negative net-notional rows |
+
+`buyers[]` / `sellers[]`: `symbol`, `netVolume`, `netNotional`, `buyVolume`, `sellVolume`, `avgPremium`, `tradeCount`, `lastTradeUtc`.
+
+---
+
+## `GET /v1/flow/stocks/leaderboard`
+
+Cross-symbol stock-flow buyers and sellers ranked by net notional.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `n` | query | no | `10` | Rows per side; effective max is `50` |
+| `windowMinutes` | query | no | `240` | Lookback window, clamped to `1..10080` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `generatedUtc` | string | Generation timestamp |
+| `n` | integer | Effective rows per side |
+| `windowMinutes` | integer | Effective lookback window |
+| `buyers[]` | array | Positive net-notional rows |
+| `sellers[]` | array | Negative net-notional rows |
+
+`buyers[]` / `sellers[]`: `symbol`, `netVolume`, `netNotional`, `buyVolume`, `sellVolume`, `vwap`, `tradeCount`, `lastTradeUtc`.
+
+---
+
+## `GET /v1/flow/options/outliers`
+
+Cross-symbol option-flow outliers ranked by absolute net notional.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `limit` | query | no | `20` | Rows returned, clamped to `1..200` |
+| `minTrades` | query | no | `20` | Minimum trades for a symbol to qualify |
+| `windowMinutes` | query | no | `240` | Lookback window, clamped to `1..10080` |
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `generatedUtc` | string | Generation timestamp |
+| `windowMinutes` | integer | Effective lookback window |
+| `tracked` | integer | Symbols/underlyings scanned |
+| `qualified` | integer | Symbols that met filters |
+| `limit` | integer | Effective output limit |
+| `outliers[]` | array | Outlier rows |
+
+`outliers[]`: `symbol`, `tradeCount`, `buyVolume`, `sellVolume`, `midVolume`, `netVolume`, `imbalancePct`, `skew`, `notional`, `netNotional`, `biggestTrade`, `biggestTradeUtc`, `biggestAgeSec`, `lastVwap`, `lastTradeUtc`, `lastTradeAgeSec`.
+
+---
+
+## `GET /v1/flow/stocks/outliers`
+
+Cross-symbol stock-flow outliers ranked by absolute net notional.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `limit` | query | no | `20` | Rows returned, clamped to `1..200` |
+| `minTrades` | query | no | `20` | Minimum trades for a symbol to qualify |
+| `windowMinutes` | query | no | `240` | Lookback window, clamped to `1..10080` |
+
+### Response Fields
+
+Same response shape as `/v1/flow/options/outliers`.
+
+---
 
 ## `GET /v1/maxpain/{symbol}`
 
@@ -1769,6 +4082,7 @@ Full Volatility Risk Premium dashboard. Combines live IV/RV/GEX data with histor
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `symbol` | path | Stock/ETF ticker (e.g., `SPY`, `QQQ`, `TSLA`) |
+| `date` | query | Optional historical date (`yyyy-MM-dd`). When supplied, returns the persisted VRP snapshot for that date instead of the live dashboard; `404` if no snapshot exists for that date. |
 
 ### Response
 
@@ -1925,6 +4239,1473 @@ curl https://lab.flashalpha.com/health
   "status": "Healthy"
 }
 ```
+
+---
+
+## Strategy Signals
+
+The strategy-signal endpoints are decision-support tools: they read the same chain, exposure, and flow primitives that power the rest of the API and fold them into a single, uniform decision envelope. Each endpoint scores one trading idea (flow imbalance, pin risk, dealer gamma regime, vol carry, yield, surface/skew/term/tail richness) on a 0–100 scale, classifies a regime, and — where the strategy expresses a trade — returns ranked structure candidates with legs, credit/debit, and breakevens.
+
+Every endpoint in this group returns the **same** `StrategyDecisionResponse` shape regardless of strategy, so a client can deserialize and rank results from any of them without strategy-specific handling. The fields `metrics` and `regime` are the only parts that vary per strategy: `metrics` is an open string-keyed bag of strategy-specific numbers, and `regime` is a short label drawn from a strategy-specific vocabulary. Both are documented per endpoint below.
+
+All endpoints are `GET`, take the `symbol` in the path, accept optional tuning parameters on the query string, and require an API key via the `X-Api-Key` header. The `score` maps to `decision` through fixed bands: `>= 70` → `candidate`, `>= 40` → `neutral`, otherwise `avoid`; `insufficient_data` is emitted when inputs are missing.
+
+### Strategy decision envelope
+
+```json
+{
+  "strategy": "flow_anomaly",          // which strategy produced this result
+  "symbol": "SPY",                     // resolved (upper-cased) underlying
+  "timestamp": "2026-06-05T14:32:11Z", // server UTC time the decision was built
+  "decision": "candidate",             // insufficient_data | avoid | neutral | candidate
+  "score": 72,                         // 0-100; drives the decision band
+  "confidence": 0.83,                  // 0-1 input-quality / sample-size weight
+  "regime": "bullish_flow_imbalance",  // strategy-specific regime label (see each endpoint)
+  "best_structures": [                 // ranked tradeable structures (may be empty)
+    {
+      "rank": 1,
+      "structure": "short_put_spread",
+      "expiry": "2026-06-19",
+      "legs": [
+        { "action": "sell", "type": "put", "strike": 588, "delta": -0.25, "premium": 1.42, "quantity": 1 },
+        { "action": "buy",  "type": "put", "strike": 578, "delta": -0.12, "premium": 0.72, "quantity": 1 }
+      ],
+      "credit": 0.70,
+      "debit": null,
+      "max_profit": 0.70,
+      "max_loss": 9.30,
+      "breakevens": [587.30],
+      "edge_score": 72,
+      "liquidity_score": 0.88
+    }
+  ],
+  "metrics": {                         // strategy-specific bag (varies per endpoint)
+    "call_put_volume_ratio": 1.84,
+    "underlying_price": 589.12
+  },
+  "risk_flags": [                      // optional risk callouts (often empty)
+    { "severity": "medium", "code": "EARNINGS_BEFORE_EXPIRY", "message": "An earnings event falls between today and the target expiry." }
+  ],
+  "why": ["Call volume outweighs put volume by 1.84x."],  // human-readable rationale
+  "avoid_if": ["Volume imbalance fades intraday or flow turns from sweep-driven to block-driven."],
+  "data_quality": {                    // gate on this before trading
+    "score": 90,
+    "warnings": []
+  }
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `strategy` | string | The strategy that produced the result (e.g. `flow_anomaly`, `vol_carry`). |
+| `symbol` | string | Resolved, upper-cased underlying symbol. |
+| `timestamp` | string (ISO 8601 UTC) | When the decision was built. |
+| `decision` | string | One of `insufficient_data`, `avoid`, `neutral`, `candidate`. Derived from `score` via the decision bands. |
+| `score` | integer | 0–100 strategy score. |
+| `confidence` | number | 0–1 weight reflecting input quality / sample size. |
+| `regime` | string | Strategy-specific regime label. The vocabulary differs per endpoint (documented below). |
+| `best_structures` | array | Ranked candidate structures. Empty when no tradeable structure clears the filters (pure-signal endpoints always return an empty array). Each item carries `rank`, `structure`, `expiry`, `legs[]` (`action`, `type`, `strike`, `delta`, `premium`, `quantity`), `credit`, `debit`, `max_profit`, `max_loss`, `breakevens[]`, `edge_score`, `liquidity_score`. |
+| `metrics` | object | Strategy-specific key/value bag. Keys vary per endpoint (documented below); `underlying_price` is always present. |
+| `risk_flags` | array | Optional risk callouts, each with `severity` (`low`/`medium`/`high`), `code`, and `message`. |
+| `why` | array of string | Human-readable rationale for the decision. |
+| `avoid_if` | array of string | Conditions under which the read should be discarded. |
+| `data_quality` | object | `score` (0–100) and `warnings[]`. Gate on this before acting. |
+
+> `metrics` and `regime` are the only parts of the envelope that change between strategies. Everything else has a fixed shape.
+
+> All strategy endpoints can also short-circuit with `decision: insufficient_data` and `regime: symbol_not_covered_historically` when the symbol is outside historical coverage.
+
+---
+
+## `GET /v1/strategies/flow-anomaly/{symbol}`
+
+Scores directional options-flow imbalance (call vs put volume) from the live chain and, when the flow is one-sided, proposes the matching short vertical spread.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol (e.g. `SPY`). |
+| `expiry` | query | no | full chain (all upcoming expiries) | `yyyy-MM-dd`. Restricts the analysis to a single expiry. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/flow-anomaly/SPY" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+### Response `200`
+
+```json
+{
+  "strategy": "flow_anomaly",
+  "symbol": "SPY",
+  "timestamp": "2026-06-05T14:32:11Z",
+  "decision": "candidate",
+  "score": 72,
+  "confidence": 0.83,
+  "regime": "bullish_flow_imbalance",
+  "best_structures": [
+    {
+      "rank": 1,
+      "structure": "short_put_spread",
+      "expiry": "2026-06-19",
+      "legs": [
+        { "action": "sell", "type": "put", "strike": 588, "delta": -0.25, "premium": 1.42, "quantity": 1 },
+        { "action": "buy",  "type": "put", "strike": 578, "delta": -0.12, "premium": 0.72, "quantity": 1 }
+      ],
+      "credit": 0.70,
+      "debit": null,
+      "max_profit": 0.70,
+      "max_loss": 9.30,
+      "breakevens": [587.30],
+      "edge_score": 72,
+      "liquidity_score": 0.88
+    }
+  ],
+  "metrics": {
+    "bias": "bullish",
+    "call_put_volume_ratio": 1.84,
+    "call_put_oi_ratio": 1.12,
+    "total_volume": 412300,
+    "total_open_interest": 1875400,
+    "underlying_price": 589.12,
+    "dominant_premium_usd": 38420000,
+    "dominant_premium_pct": 0.63,
+    "top3_strikes_volume_pct": 0.41
+  },
+  "risk_flags": [],
+  "why": ["Call volume outweighs put volume by 1.84x."],
+  "avoid_if": ["Volume imbalance fades intraday or flow turns from sweep-driven to block-driven."],
+  "data_quality": { "score": 90, "warnings": [] }
+}
+```
+
+**Notable `metrics`:** `bias`, `call_put_volume_ratio`, `call_put_oi_ratio`, `total_volume`, `total_open_interest`, `dominant_premium_usd`, `dominant_premium_pct`, `top3_strikes_volume_pct`, `underlying_price`.
+
+**`regime` values:** `bullish_flow_imbalance`, `bearish_flow_imbalance`, `neutral_flow`.
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Growth plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/expiry-positioning/{symbol}`
+
+Scores OPEX pin risk for a single expiry from max-pain, OI concentration, and dealer levels (gamma flip, call/put walls), and proposes an iron fly when a pin is likely.
+
+**Requires Basic plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | nearest upcoming expiry | `yyyy-MM-dd`. The expiry to analyse. |
+| `minOpenInterest` | query | no | `250` | Minimum OI a leg must have to be selected. |
+| `wingWidth` | query | no | `5.0` | Iron-fly wing width, in strike points. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/expiry-positioning/SPY?expiry=2026-06-19&wingWidth=5" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `max_pain_strike`, `distance_to_pain_pct`, `oi_concentration_score`, `total_open_interest`, `expiry`, `days_to_expiry`, `gamma_flip`, `call_wall`, `put_wall`, `distance_to_flip_pct`, `spot_position_label`, `underlying_price`.
+
+**`regime` values:** `strong_pin_likely`, `moderate_pin`, `no_pin_setup`.
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Basic plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/zero-dte/{symbol}`
+
+Same-day (0DTE) range-compression read: combines pin/positioning with intraday time-of-day context (minutes to close, expected-move consumed, theta acceleration) and proposes an iron fly when the pin is strong enough.
+
+**Requires Growth plan or higher, and also requires 0DTE access** (0DTE entitlement is gated separately from the plan tier). Defaults to today's expiry when `expiry` is omitted.
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | today (same-day expiry) | `yyyy-MM-dd`. Overrides the same-day default. |
+| `minOpenInterest` | query | no | `500` | Minimum OI a leg must have to be selected. |
+| `wingWidth` | query | no | `5.0` | Iron-fly wing width, in strike points. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/zero-dte/SPY" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `max_pain_strike`, `distance_to_pain_pct`, `oi_concentration_score`, `total_open_interest`, `gamma_flip`, `call_wall`, `put_wall`, `distance_to_flip_pct`, `spot_position_label`, `minutes_to_close`, `session_open_spot`, `expected_move_today`, `expected_move_consumed_pct`, `theta_acceleration`, `underlying_price`.
+
+**`regime` values:** `pin_risk_positive_gamma`, `range_compression`, `trend_risk_or_no_setup`; plus `no_same_day_expiry` / `no_expiry_chain` (returned with `decision: insufficient_data` when no chain exists for the selected expiry).
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Growth plan (or lacks 0DTE access). |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/dealer-regime/{symbol}`
+
+Classifies the dealer gamma regime (positive-gamma compression vs negative-gamma acceleration) from net gamma, dealer levels, and full vanna/charm exposure, and proposes an iron condor in compressive regimes.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | all upcoming expiries | `yyyy-MM-dd`. Restricts exposure aggregation to a single expiry. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/dealer-regime/SPY" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `net_gamma`, `net_delta`, `gamma_source`, `gamma_flip`, `call_wall`, `put_wall`, `distance_to_flip_pct`, `spot_position_label`, `net_vex`, `net_chex`, `underlying_price`.
+
+**`regime` values:** `positive_gamma_compression`, `negative_gamma_acceleration`, `transition`.
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Growth plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/vol-carry/{symbol}`
+
+Volatility risk-premium carry: scores implied vol richness against realized vol using historical VRP percentile/z-score, with skew, term-slope, RV-trend, and earnings context, and proposes short put spreads / iron condors when carry is favourable. Returns `decision: insufficient_data` (`regime: vrp_unavailable`) when the historical VRP path is unavailable for the symbol.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | nearest upcoming expiry | `yyyy-MM-dd`. Target expiry for structure selection and context. |
+| `minOpenInterest` | query | no | `250` | Minimum OI a leg must have to be selected. |
+| `targetShortDelta` | query | no | `0.25` | Target delta for the short leg. |
+| `maxWidth` | query | no | `10.0` | Maximum spread/wing width, in strike points. |
+| `minCredit` | query | no | `0.10` | Minimum credit a candidate must collect. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/vol-carry/SPY?targetShortDelta=0.20&maxWidth=10" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `atm_iv`, `realized_vol`, `vrp`, `vrp_z_score`, `vrp_percentile`, `used_real_metrics`, `skew_25d`, `risk_reversal_25d`, `term_slope`, `rv_change_5d`, `earnings_before_expiry`, `recommended_side`, `underlying_price`.
+
+**`regime` values:** `rich_iv_stable_realized_vol`, `fair_iv_neutral_realized_vol`, `cheap_iv_or_unstable_realized_vol`; plus `vrp_unavailable` (insufficient-data case).
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Alpha plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/yield-enhancement/{symbol}`
+
+Income overlay selection: finds the best covered call or cash-secured put on the chain at a target delta, with annualized yield, assignment probability, breakeven, roll candidate, and an earnings filter. Emits `EARNINGS_BEFORE_EXPIRY` and `EX_DIVIDEND_RISK_NOT_MODELED` risk flags where applicable.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | nearest upcoming expiry | `yyyy-MM-dd`. Restricts selection to a single expiry. |
+| `targetDelta` | query | no | `0.25` | Target delta for the short option. |
+| `minOpenInterest` | query | no | `250` | Minimum OI a candidate must have. |
+| `structure` | query | no | `covered_call` | `covered_call` or `cash_secured_put`. |
+| `excludeEarningsBeforeExpiry` | query | no | `true` | When true, penalises/flags picks whose expiry spans an earnings event. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/yield-enhancement/SPY?structure=cash_secured_put&targetDelta=0.20" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `structure`, `strike`, `delta`, `premium`, `annualized_yield_pct`, `assignment_probability`, `upside_surrender_pct`, `dte`, `earnings_before_expiry`, `ex_dividend_risk`, `breakeven_price`, `iv_rank_30d`, `roll_candidate`, `next_earnings_date`, `days_to_next_earnings`, `underlying_price`.
+
+**`regime` values:** `covered_call_income`, `cash_secured_put_income`, `no_yield_candidate`.
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_structure` | `structure` is not `covered_call` or `cash_secured_put`. |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Growth plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/surface-anomaly/{symbol}`
+
+Compares observed IVs against the calibrated SVI fit for an expiry to find rich/cheap wings (per-strike residuals, fit quality, cheap-convexity score), and proposes the obvious vertical-credit sale on a rich wing. Returns `decision: insufficient_data` (`regime: no_fitted_surface`) when no fitted SVI slice is available.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | nearest fitted SVI slice | `yyyy-MM-dd`. The expiry slice to analyse. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/surface-anomaly/SPY?expiry=2026-06-19" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `expiry`, `put_wing_richness`, `call_wing_richness`, `dominant_wing`, `sample_count`, `forward`, `per_strike_residuals`, `fit_quality_score`, `cheap_convexity_score`, `underlying_price`.
+
+**`regime` values:** `rich_put_wing`, `rich_call_wing`, `flat_residuals`; plus `no_fitted_surface` (insufficient-data case).
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Alpha plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/skew/{symbol}`
+
+Pure-signal read of 25-delta skew (put vs call wing richness and the risk reversal) for one expiry. No structure is selected; `best_structures` is always empty and `decision` is `neutral`. Returns `decision: insufficient_data` (`regime: no_skew_data`) when both 25Δ wings can't be priced.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | nearest upcoming expiry | `yyyy-MM-dd`. The expiry to read. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/skew/SPY" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `expiry`, `days_to_expiry`, `atm_iv`, `call_iv_25d`, `put_iv_25d`, `risk_reversal_25d`, `skew_slope`, `dominant_wing`, `sample_count`, `underlying_price`.
+
+**`regime` values:** `put_skew`, `call_skew`, `flat_skew`; plus `no_skew_data` (insufficient-data case).
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Growth plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/term-structure/{symbol}`
+
+Pure-signal read of the ATM implied-vol term structure across all upcoming expiries (contango vs backwardation, front/back IV, slope, per-expiry points). No structure is selected; `decision` is `neutral`. Returns `decision: insufficient_data` (`regime: no_term_structure_data`) when no expiry has a usable ATM IV.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. This endpoint takes no tuning parameters. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/term-structure/SPY" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `front_iv`, `back_iv`, `slope`, `shape`, `expiry_count`, `term_points` (array of `{ expiry, dte, atm_iv }`), `underlying_price`.
+
+**`regime` values:** `contango`, `backwardation`, `flat_term`; plus `no_term_structure_data` (insufficient-data case).
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 403 | `tier_restricted` | Caller is below the Growth plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/tail-pricing/{symbol}`
+
+Pure-signal read of downside-tail pricing for one expiry: 10-delta put IV vs ATM (downside skew), tail asymmetry, and whether the crash tail is rich or cheap. No structure is selected; `decision` is `neutral`. Returns `decision: insufficient_data` (`regime: no_tail_data`) when the ATM or 10Δ put quote is missing.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | — | Underlying symbol. |
+| `expiry` | query | no | nearest upcoming expiry | `yyyy-MM-dd`. The expiry to read. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/tail-pricing/SPY?expiry=2026-06-19" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+Returns the [strategy decision envelope](#strategy-decision-envelope) with strategy-specific `metrics` and `regime`.
+
+**Notable `metrics`:** `expiry`, `days_to_expiry`, `atm_iv`, `put_tail_iv_10d`, `call_tail_iv_10d`, `downside_skew`, `tail_asymmetry`, `sample_count`, `underlying_price`.
+
+**`regime` values:** `expensive_tail`, `cheap_tail`, `symmetric_tail`; plus `no_tail_data` (insufficient-data case).
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
+| 403 | `tier_restricted` | Caller is below the Growth plan. |
+| 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## Earnings
+
+Earnings-event analytics derived from the upcoming/historical earnings calendar plus live options term structure: the calendar, earnings-implied expected move decomposition, IV-crush expectations, post-earnings VRP (implied vs. realized event moves), dealer positioning scoped to the event expiry, and strategy-suitability scoring. Earnings event data (dates, EPS/revenue actuals, fiscal periods, importance) is sourced from Finnhub; live IV, term structure, and exposure are computed from the on-demand options pipeline.
+
+---
+
+## `GET /v1/earnings/calendar`
+
+Upcoming earnings calendar over a forward window, optionally filtered to specific symbols and a minimum importance rating.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `days` | query | no | `14` | Forward window in days. Clamped to `1`–`90`. |
+| `symbols` | query | no | — | Comma-separated list of symbols to filter to (case-insensitive, e.g. `AAPL,MSFT`). Omit for the full calendar. |
+| `importance` | query | no | — | Minimum importance rating; only events with `importance >=` this value are returned. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/calendar?days=14&symbols=AAPL,MSFT&importance=3"
+```
+
+### Response `200`
+
+```json
+{
+  "events": [
+    {
+      "symbol": "AAPL",
+      "company_name": "Apple Inc",
+      "earnings_date": "2026-06-09",
+      "timing": "amc",
+      "is_confirmed": true,
+      "fiscal_period": "Q3",
+      "fiscal_year": 2026,
+      "importance": 5,
+      "eps_estimate": 1.42,
+      "implied_move_pct": 4.8,
+      "days_to_event": 4
+    }
+  ],
+  "count": 1
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `events[].timing` | Session of the report — typically `bmo` (before market open) or `amc` (after market close); may be null/unknown. |
+| `events[].is_confirmed` | Whether the date is confirmed (vs. estimated) by the provider. |
+| `events[].importance` | Provider importance rating (higher = more market-moving); nullable. |
+| `events[].eps_estimate` | Consensus EPS estimate; nullable. |
+| `events[].implied_move_pct` | Stored earnings-implied move (%), if available; nullable. |
+| `events[].days_to_event` | Calendar days from today (UTC) to the earnings date. |
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Invalid query parameter. |
+| `403` | Caller is below the Growth tier. |
+| `404` | `no_data` — no upcoming earnings in the requested window. |
+
+---
+
+## `GET /v1/earnings/expected-move/{symbol}`
+
+Live earnings-implied move decomposition for the next event, splitting the front-expiry straddle into the earnings-jump component vs. baseline diffusion drift using the pre/post-event SVI term structure.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol (case-insensitive). |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/expected-move/AAPL"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "AAPL",
+  "underlying_price": 212.34,
+  "as_of": "2026-06-05T15:42:10Z",
+  "earnings_date": "2026-06-09",
+  "session": "amc",
+  "days_to_event": 4,
+  "expected_move": {
+    "raw_straddle_pct": 5.1,
+    "earnings_implied_pct": 4.6,
+    "baseline_drift_pct": 1.2,
+    "earnings_iv": 68.4,
+    "term_iv_post_event": 41.2,
+    "term_kink_pct": 27.2
+  }
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `underlying_price` | Spot (quote mid) used for the decomposition. |
+| `session` | Reporting session of the event (`bmo`/`amc`). |
+| `expected_move` | Null when the pre/post-event expiry IVs cannot be resolved from the live term structure (no valid straddling expiries). |
+| `expected_move.raw_straddle_pct` | Total expected move (%) implied by the front straddle. |
+| `expected_move.earnings_implied_pct` | Portion of the move (%) attributed to the earnings jump. |
+| `expected_move.baseline_drift_pct` | Portion of the move (%) attributed to ordinary baseline diffusion. |
+| `expected_move.earnings_iv` | ATM IV (%) of the pre-event (front) expiry. |
+| `expected_move.term_iv_post_event` | ATM IV (%) of the first post-event expiry. |
+| `expected_move.term_kink_pct` | Term-structure kink (%) across the event — elevation of front vs. post-event IV. |
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `403` | Caller is below the Growth tier. |
+| `404` | `no_data` — no upcoming earnings for the symbol; or `symbol_not_found` — no live market data for the symbol. |
+
+---
+
+## `GET /v1/earnings/history/{symbol}`
+
+Past earnings events for the symbol with EPS/revenue actuals and surprises, implied vs. actual moves, and realized IV crush.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol (case-insensitive). |
+| `limit` | query | no | `12` | Number of most-recent reported events to return. Clamped to `1`–`40`. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/history/AAPL?limit=12"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "AAPL",
+  "count": 2,
+  "history": [
+    {
+      "date": "2026-04-30",
+      "fiscal_period": "Q2",
+      "fiscal_year": 2026,
+      "eps_estimate": 1.50,
+      "eps_actual": 1.58,
+      "eps_surprise_pct": 5.33,
+      "revenue_actual": 95800000000,
+      "revenue_surprise_pct": 1.2,
+      "implied_move_pct": 4.9,
+      "actual_move_pct": -3.1,
+      "iv_crush_pct": 38.5,
+      "pre_atm_iv": 64.2,
+      "post_atm_iv": 39.5
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `history[].eps_surprise_pct` | EPS surprise vs. estimate (%); positive = beat. |
+| `history[].revenue_surprise_pct` | Revenue surprise vs. estimate (%); nullable. |
+| `history[].implied_move_pct` | Earnings-implied move (%) priced before the event. |
+| `history[].actual_move_pct` | Realized post-earnings move (%); sign indicates direction. |
+| `history[].iv_crush_pct` | Realized IV crush (%) from pre- to post-event ATM IV. |
+| `history[].pre_atm_iv` / `post_atm_iv` | ATM IV (%) immediately before and after the event. |
+
+Only events with an actual EPS result are returned (i.e., already-reported events).
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Invalid `limit`. |
+| `403` | Caller is below the Growth tier. |
+| `404` | `no_data` — no reported earnings history for the symbol. |
+
+---
+
+## `GET /v1/earnings/iv-crush/{symbol}`
+
+Expected IV crush for the next event plus the symbol's historical IV-crush distribution. The live estimate is derived from the current pre/post-event term structure; the distribution is built from up to the last 20 events.
+
+**Requires Growth plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol (case-insensitive). |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/iv-crush/AAPL"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "AAPL",
+  "as_of": "2026-06-05T15:42:10Z",
+  "earnings_date": "2026-06-09",
+  "current_estimate": {
+    "expected_crush_pct": 41.23,
+    "pre_iv": 67.8,
+    "post_iv": 39.85
+  },
+  "distribution": {
+    "median": 38.5,
+    "p25": 31.0,
+    "p75": 45.2,
+    "worst": 12.4,
+    "best": 58.9,
+    "count": 12
+  }
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `earnings_date` | Next event date; null when no upcoming event but history exists. |
+| `current_estimate` | Live crush estimate; null when no upcoming event or the term structure can't be resolved. |
+| `current_estimate.expected_crush_pct` | Expected ATM IV drop (%) from pre to post event = `(pre_iv − post_iv) / pre_iv × 100`. |
+| `current_estimate.pre_iv` / `post_iv` | ATM IV (%) of the latest pre-event and earliest post-event expiry. |
+| `distribution.median` / `p25` / `p75` | Historical realized crush (%) percentiles. |
+| `distribution.worst` / `best` | Smallest and largest historical crush (%). |
+| `distribution.count` | Number of historical events in the distribution. |
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `403` | Caller is below the Growth tier. |
+| `404` | `no_data` — no upcoming event and no IV-crush history for the symbol. |
+
+---
+
+## `GET /v1/earnings/vrp/{symbol}`
+
+Earnings volatility-risk-premium: the live event-implied move vs. the symbol's realized history of actual moves, with a richness assessment and surprise-reaction breakdown.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol (case-insensitive). |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/vrp/AAPL"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "AAPL",
+  "underlying_price": 212.34,
+  "as_of": "2026-06-05T15:42:10Z",
+  "earnings_date": "2026-06-09",
+  "days_to_event": 4,
+  "earnings_vrp": {
+    "implied_move_pct": 4.6,
+    "realized_median": 3.1,
+    "realized_mean": 3.4,
+    "premium_ratio": 1.48,
+    "z_score": 0.92,
+    "percentile": 70,
+    "assessment": "slightly_rich",
+    "directional_bias": "downside_overpriced"
+  },
+  "surprise_reaction": {
+    "beat_avg_move_pct": 2.8,
+    "miss_avg_move_pct": -5.1,
+    "inline_avg_move_pct": 0.4
+  }
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `earnings_vrp.implied_move_pct` | Live earnings-implied move (%); falls back to the stored implied move if the term structure can't be decomposed. |
+| `earnings_vrp.realized_median` / `realized_mean` | Median / mean of historical absolute actual moves (%). |
+| `earnings_vrp.premium_ratio` | `implied_move / realized_median` — >1 means options are pricing more than history realized. |
+| `earnings_vrp.z_score` | Implied move vs. realized distribution (z); null when fewer than 5 historical moves. |
+| `earnings_vrp.percentile` | Percentile of the implied move within historical realized moves; null when fewer than 5 events. |
+| `earnings_vrp.assessment` | Richness classification: `rich`, `slightly_rich`, `fair`, `slightly_cheap`, `cheap`, or `insufficient_data`. |
+| `earnings_vrp.directional_bias` | `downside_overpriced` / `upside_overpriced` when one side's historical moves dominate; otherwise null. |
+| `surprise_reaction.beat_avg_move_pct` | Avg actual move (%) following EPS beats (surprise > 1%); nullable. |
+| `surprise_reaction.miss_avg_move_pct` | Avg actual move (%) following EPS misses (surprise < −1%); nullable. |
+| `surprise_reaction.inline_avg_move_pct` | Avg actual move (%) following in-line results (−1%…+1% surprise); nullable. |
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `403` | Caller is below the Alpha tier. |
+| `404` | `no_data` — no upcoming earnings for the symbol; or `symbol_not_found` — no live market data. |
+
+---
+
+## `GET /v1/earnings/dealer-positioning/{symbol}`
+
+Dealer exposure analysis scoped to the earnings event: gamma flip / call & put walls on the event-week expiries, net GEX bucketed by pre-event / event-week / post-event, charm acceleration into the event, and the top strikes by absolute net GEX.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol (case-insensitive). |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/dealer-positioning/AAPL"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "AAPL",
+  "underlying_price": 212.34,
+  "as_of": "2026-06-05T15:42:10Z",
+  "earnings_date": "2026-06-09",
+  "event_expiry": "2026-06-12",
+  "levels": {
+    "gamma_flip": 210.0,
+    "call_wall": 220.0,
+    "put_wall": 205.0,
+    "highest_oi_strike": 215.0
+  },
+  "gex_by_dte_bucket": [
+    { "bucket": "pre_event", "net_gex": 120000000, "contract_count": 48 },
+    { "bucket": "event_week", "net_gex": -85000000, "contract_count": 36 },
+    { "bucket": "post_event", "net_gex": 340000000, "contract_count": 90 }
+  ],
+  "top_strikes": [
+    { "strike": 220.0, "net_gex": 65000000, "call_oi": 18500, "put_oi": 2100 }
+  ],
+  "charm_acceleration": 0.42,
+  "regime": "negative_gamma"
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `event_expiry` | Closest options expiry on or after the earnings date; null if none found. |
+| `levels.gamma_flip` | Strike where net GEX flips sign (event-week scope); nullable. |
+| `levels.call_wall` / `put_wall` | Largest positive-GEX strike above / largest below spot; nullable. |
+| `levels.highest_oi_strike` | Strike with the most open interest (event-week scope); nullable. |
+| `gex_by_dte_bucket[]` | Net GEX and contract count for the `pre_event`, `event_week`, and `post_event` expiry buckets (buckets with no contracts are omitted). |
+| `top_strikes[]` | Up to 5 strikes ranked by absolute net GEX, with per-strike call/put OI. |
+| `charm_acceleration` | Ratio of event-expiry CHEX to full-chain CHEX — how concentrated charm flow is into the event; null when not computable. |
+| `regime` | `positive_gamma` when spot ≥ gamma flip, `negative_gamma` when below, `undetermined` when no flip found. |
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `403` | Caller is below the Alpha tier. |
+| `404` | `no_data` — no upcoming earnings for the symbol; or `symbol_not_found` — no live market data. |
+
+---
+
+## `GET /v1/earnings/strategies/{symbol}`
+
+Strategy-suitability scores (0–100) for the upcoming event across common earnings structures, blending implied move, VRP premium ratio, expected IV crush, ATM liquidity, and the gamma regime.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | — | Underlying symbol (case-insensitive). |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/strategies/AAPL"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "AAPL",
+  "as_of": "2026-06-05T15:42:10Z",
+  "earnings_date": "2026-06-09",
+  "scores": {
+    "long_straddle": 38,
+    "short_strangle": 72,
+    "iron_condor": 65,
+    "calendar_spread": 58,
+    "earnings_diagonal": 61
+  },
+  "context": {
+    "premium_ratio": 1.48,
+    "iv_crush_median": 38.5,
+    "regime": "negative_gamma",
+    "implied_move_pct": 4.6
+  }
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `scores.long_straddle` | Suitability (0–100) for a long straddle (favored when premium is cheap / negative gamma). |
+| `scores.short_strangle` | Suitability for a short strangle (favored when premium is rich, positive gamma, high crush). |
+| `scores.iron_condor` | Suitability for an iron condor (defined-risk premium sale). |
+| `scores.calendar_spread` | Suitability for a calendar spread. |
+| `scores.earnings_diagonal` | Suitability for an earnings diagonal. |
+| `context.premium_ratio` | VRP premium ratio (implied / realized-median) feeding the scores. |
+| `context.iv_crush_median` | Median historical IV crush (%) feeding the scores. |
+| `context.regime` | Gamma regime: `positive_gamma`, `negative_gamma`, or `undetermined`. |
+| `context.implied_move_pct` | Earnings-implied move (%) used as the scoring input. |
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `403` | Caller is below the Alpha tier. |
+| `404` | `no_data` — no upcoming earnings for the symbol; or `symbol_not_found` — no live market data. |
+
+---
+
+## `GET /v1/earnings/screener`
+
+Cross-sectional screener over upcoming earnings in a forward window, ranked by VRP richness, cheapest implied move, highest historical crush, or importance.
+
+**Requires Alpha plan or higher.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `sort` | query | no | `vrp_richest` | Ranking: `vrp_richest` (highest premium ratio), `cheapest_move` (lowest implied move), `highest_crush` (highest median IV crush), or `importance`. Unrecognized values fall back to `vrp_richest`. |
+| `limit` | query | no | `20` | Max rows returned. Clamped to `1`–`50`. |
+| `days` | query | no | `14` | Forward window in days. Clamped to `1`–`60`. |
+| `min_importance` | query | no | — | Only include events with `importance >=` this value. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/earnings/screener?sort=vrp_richest&limit=20&days=14&min_importance=3"
+```
+
+### Response `200`
+
+```json
+{
+  "events": [
+    {
+      "symbol": "AAPL",
+      "company_name": "Apple Inc",
+      "earnings_date": "2026-06-09",
+      "days_to_event": 4,
+      "timing": "amc",
+      "importance": 5,
+      "implied_move_pct": 4.6,
+      "premium_ratio": 1.48,
+      "iv_crush_median": 38.5,
+      "assessment": "slightly_rich"
+    }
+  ],
+  "count": 1
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `events[].premium_ratio` | VRP premium ratio (implied / realized-median); null when no historical actual moves exist. |
+| `events[].iv_crush_median` | Median historical IV crush (%); null when no crush history. |
+| `events[].assessment` | VRP richness classification (`rich`, `slightly_rich`, `fair`, `slightly_cheap`, `cheap`, `insufficient_data`); null when no history. |
+| `count` | Total matched events before `limit` is applied (the `events` array is capped at `limit`). |
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Invalid query parameter. |
+| `403` | Caller is below the Alpha tier. |
+| `404` | `no_data` — no upcoming earnings in the requested window. |
+
+---
+
+## Structures
+
+Pure-math multi-leg structure utilities — at-expiry P&L diagrams, breakevens, and aggregate position Greeks. Every result here is a deterministic function of the legs you supply: there is **no market-data lookup**, no symbol resolution, and no live IV. Pass the legs, premiums, and (for Greeks) the spot/IV you want priced against, and the response is computed analytically.
+
+---
+
+## `POST /v1/structures/pnl`
+
+At-expiry profit-and-loss curve, breakevens, and max profit/loss for an arbitrary multi-leg option structure.
+
+**Requires Basic plan or higher.** Starter (Free) accounts receive `403 tier_restricted`.
+
+### Request body
+
+```json
+{
+  "legs": [
+    { "action": "buy",  "type": "call", "strike": 100, "premium": 3.20, "quantity": 1 },
+    { "action": "sell", "type": "call", "strike": 110, "premium": 1.10, "quantity": 1 }
+  ],
+  "minUnderlying": 80,
+  "maxUnderlying": 130,
+  "points": 81
+}
+```
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `legs` | array | yes | — | One or more legs. Must be non-empty. |
+| `legs[].action` | string | yes | `"buy"` | `buy` (alias `long`) or `sell` (alias `short`). |
+| `legs[].type` | string | yes | `"call"` | `call` (alias `c`) or `put` (alias `p`). |
+| `legs[].strike` | number | yes | — | Strike price. Must be `> 0`. |
+| `legs[].premium` | number | yes | — | Per-contract premium paid/received. Must be `>= 0`. |
+| `legs[].quantity` | integer | no | `1` | Number of contracts. Must be `> 0`. |
+| `minUnderlying` | number | no | derived | Lower bound of the underlying-price curve. If omitted (or not strictly below `maxUnderlying`), the range is derived from the leg strikes ±30%. |
+| `maxUnderlying` | number | no | derived | Upper bound of the curve. See `minUnderlying`. |
+| `points` | integer | no | `81` | Number of equally-spaced curve sample points (endpoints inclusive). Clamped to a minimum of 2. |
+
+The payoff is piecewise-linear in the underlying, so breakevens and the bounded max/min are solved exactly from the kinks at the strikes. `max_profit` / `max_loss` are `null` on any side that is unbounded (e.g. a naked long call has unbounded `max_profit`; a naked short call has unbounded `max_loss`).
+
+### Example
+
+```bash
+curl -X POST "https://lab.flashalpha.com/v1/structures/pnl" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "legs": [
+          { "action": "buy",  "type": "call", "strike": 100, "premium": 3.20, "quantity": 1 },
+          { "action": "sell", "type": "call", "strike": 110, "premium": 1.10, "quantity": 1 }
+        ],
+        "minUnderlying": 80,
+        "maxUnderlying": 130,
+        "points": 81
+      }'
+```
+
+### Response `200`
+
+```json
+{
+  "legs": [
+    { "action": "buy",  "type": "call", "strike": 100, "premium": 3.2, "quantity": 1 },
+    { "action": "sell", "type": "call", "strike": 110, "premium": 1.1, "quantity": 1 }
+  ],
+  "pnl_curve": [
+    { "underlying": 80,    "pnl": -2.1 },
+    { "underlying": 80.625, "pnl": -2.1 },
+    { "underlying": 100,   "pnl": -2.1 },
+    { "underlying": 110,   "pnl": 7.9 },
+    { "underlying": 130,   "pnl": 7.9 }
+  ],
+  "breakevens": [102.1],
+  "max_profit": 7.9,
+  "max_loss": -2.1
+}
+```
+
+`legs` echoes the request body verbatim. Each `pnl_curve` entry is `{ underlying, pnl }`. `breakevens` is an array of underlying prices where P&L crosses zero (may be empty). `max_profit` and `max_loss` are numbers, or `null` when unbounded on that side.
+
+### Errors
+
+| Status | `error` | When |
+|---|---|---|
+| `400` | `empty_legs` | `legs` is missing or empty. |
+| `400` | `invalid_action` | `leg[i].action` is not `buy`/`sell` (or `long`/`short`). |
+| `400` | `invalid_type` | `leg[i].type` is not `call`/`put` (or `c`/`p`). |
+| `400` | `invalid_strike` | `leg[i].strike <= 0`. |
+| `400` | `invalid_premium` | `leg[i].premium < 0`. |
+| `400` | `invalid_quantity` | `leg[i].quantity <= 0`. |
+| `403` | `tier_restricted` | Starter (Free) plan. Requires Basic or higher. |
+
+---
+
+## `POST /v1/structures/greeks`
+
+Aggregate Black-Scholes Greeks across a multi-leg position. Each leg carries its own expiry and implied vol, so calendars and diagonals aggregate correctly.
+
+**Requires Basic plan or higher.** Starter (Free) accounts receive `403 tier_restricted`.
+
+### Request body
+
+```json
+{
+  "legs": [
+    { "action": "buy",  "type": "call", "strike": 100, "expiry": "2026-07-17", "impliedVol": 0.28, "quantity": 1 },
+    { "action": "sell", "type": "call", "strike": 110, "expiry": "2026-07-17", "impliedVol": 0.25, "quantity": 1 }
+  ],
+  "spot": 102.5,
+  "today": "2026-06-05",
+  "rate": 0.045,
+  "dividendYield": 0.013
+}
+```
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `legs` | array | yes | — | One or more legs. Must be non-empty. |
+| `legs[].action` | string | yes | `"buy"` | `buy` (alias `long`) or `sell` (alias `short`). |
+| `legs[].type` | string | yes | `"call"` | `call` (alias `c`) or `put` (alias `p`). |
+| `legs[].strike` | number | yes | — | Strike price. Must be `> 0`. |
+| `legs[].expiry` | string | yes | — | Leg expiry, `YYYY-MM-DD`. |
+| `legs[].impliedVol` | number | yes | — | Implied volatility as a decimal (e.g. `0.28`). Must be `> 0`. |
+| `legs[].quantity` | integer | no | `1` | Number of contracts. Must be `> 0`. |
+| `spot` | number | yes | — | Underlying spot price priced against. Must be `> 0`. |
+| `today` | string | no | today (UTC) | Valuation date, `YYYY-MM-DD`. |
+| `rate` | number | no | `0.045` | Risk-free rate (decimal). |
+| `dividendYield` | number | no | `0.013` | Continuous dividend yield (decimal). |
+
+Each Greek is signed for direction (long `+`, short `−`) and scaled by quantity, then summed across legs. Legs that have already expired relative to `today` contribute zero.
+
+### Example
+
+```bash
+curl -X POST "https://lab.flashalpha.com/v1/structures/greeks" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "legs": [
+          { "action": "buy",  "type": "call", "strike": 100, "expiry": "2026-07-17", "impliedVol": 0.28, "quantity": 1 },
+          { "action": "sell", "type": "call", "strike": 110, "expiry": "2026-07-17", "impliedVol": 0.25, "quantity": 1 }
+        ],
+        "spot": 102.5,
+        "today": "2026-06-05",
+        "rate": 0.045,
+        "dividendYield": 0.013
+      }'
+```
+
+### Response `200`
+
+```json
+{
+  "spot": 102.5,
+  "as_of": "2026-06-05T14:32:10.123Z",
+  "valuation_date": "2026-06-05",
+  "rate": 0.045,
+  "dividend_yield": 0.013,
+  "legs": [
+    { "action": "buy",  "type": "call", "strike": 100, "expiry": "2026-07-17", "impliedVol": 0.28, "quantity": 1 },
+    { "action": "sell", "type": "call", "strike": 110, "expiry": "2026-07-17", "impliedVol": 0.25, "quantity": 1 }
+  ],
+  "position_greeks": {
+    "delta": 0.3142,
+    "gamma": 0.0184,
+    "theta": -0.0421,
+    "vega": 0.1163,
+    "rho": 0.0457,
+    "vanna": -0.0039,
+    "charm": 0.0008
+  }
+}
+```
+
+`legs` echoes the request body. `valuation_date` is the resolved `today`. `position_greeks` carries the aggregated `delta`, `gamma`, `theta`, `vega`, `rho`, `vanna`, and `charm`. (Top-level response keys are snake_case; the echoed `legs` use the same camelCase field names as the request body.)
+
+### Errors
+
+| Status | `error` | When |
+|---|---|---|
+| `400` | `empty_legs` | `legs` is missing or empty. |
+| `400` | `invalid_spot` | `spot <= 0`. |
+| `400` | `invalid_action` | `leg[i].action` is not `buy`/`sell` (or `long`/`short`). |
+| `400` | `invalid_type` | `leg[i].type` is not `call`/`put` (or `c`/`p`). |
+| `400` | `invalid_strike` | `leg[i].strike <= 0`. |
+| `400` | `invalid_iv` | `leg[i].impliedVol <= 0`. |
+| `400` | `invalid_expiry` | `leg[i].expiry` is not a valid `YYYY-MM-DD` date. |
+| `400` | `invalid_quantity` | `leg[i].quantity <= 0`. |
+| `403` | `tier_restricted` | Starter (Free) plan. Requires Basic or higher. |
+
+---
+
+## `GET /v1/surface/svi/{symbol}`
+
+Live SVI-fitted volatility surface for a symbol — the calibrated `(a, b, ρ, m, σ)` parameters per expiry slice, with ATM total variance and ATM IV. A lightweight subset of the full advanced-volatility payload for clients that reconstruct the surface themselves.
+
+**Requires Alpha plan or higher.** Lower tiers receive `403 tier_restricted`.
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|---|---|---|---|---|
+| `symbol` | path | yes | — | Underlying ticker (case-insensitive; normalized to uppercase). |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/surface/svi/SPY" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 542.18,
+  "as_of": "2026-06-05T14:32:10.123Z",
+  "market_open": true,
+  "svi_parameters": [
+    {
+      "expiry": "2026-06-20",
+      "days_to_expiry": 15,
+      "forward": 542.91,
+      "a": 0.001204,
+      "b": 0.142318,
+      "rho": -0.612045,
+      "m": 0.018221,
+      "sigma": 0.094117,
+      "atm_total_variance": 0.002918,
+      "atm_iv": 16.42
+    },
+    {
+      "expiry": "2026-07-18",
+      "days_to_expiry": 43,
+      "forward": 543.77,
+      "a": 0.002981,
+      "b": 0.158902,
+      "rho": -0.584311,
+      "m": 0.021004,
+      "sigma": 0.112744,
+      "atm_total_variance": 0.006611,
+      "atm_iv": 17.05
+    }
+  ]
+}
+```
+
+`underlying_price` is the mid of the underlying. `svi_parameters` is ordered by `days_to_expiry`; each slice gives the raw SVI parameters `a`, `b`, `rho`, `m`, `sigma`, the per-expiry `forward`, the ATM total variance (`atm_total_variance`), and the ATM implied vol as a percentage (`atm_iv`).
+
+### Errors
+
+| Status | `error` | When |
+|---|---|---|
+| `403` | `tier_restricted` | Tier below Alpha. Requires Alpha or higher. |
+| `404` | `symbol_not_found` | No data for the symbol. Message notes when the market is closed (9:30 AM – 4:00 PM ET). |
+
+---
+
+## `GET /v1/expected-move/{symbol}`
+
+Straddle-implied expected move per expiry, derived from ATM implied volatility. Generalizes the earnings-only expected move to any upcoming expiry.
+
+**Requires Basic plan or higher.** Starter (Free) accounts receive `403 tier_restricted`.
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|---|---|---|---|---|
+| `symbol` | path | yes | — | Underlying ticker (case-insensitive; normalized to uppercase). |
+| `expiry` | query | no | all expiries | Restrict the result to a single expiry, `YYYY-MM-DD`. Omit to receive every upcoming expiry. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/expected-move/SPY?expiry=2026-06-20" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+### Response `200`
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 542.18,
+  "as_of": "2026-06-05T14:32:10.123Z",
+  "expected_moves": [
+    {
+      "expiry": "2026-06-20",
+      "daysToExpiry": 15,
+      "atmIv": 0.1642,
+      "expectedMove": 17.6234,
+      "expectedMovePct": 3.2504,
+      "lowerBound": 524.5566,
+      "upperBound": 559.8034
+    }
+  ]
+}
+```
+
+The top-level keys are snake_case (`underlying_price`, `as_of`, `expected_moves`); the **items inside `expected_moves` use camelCase**. `expected_moves` is ordered by expiry. For each expiry: `daysToExpiry` (calendar days), `atmIv` (ATM implied vol as a decimal, or `null` when no ATM IV can be derived), `expectedMove` (1-σ move in price terms), `expectedMovePct` (as a percentage of spot), and the `lowerBound` / `upperBound` of the implied range (`spot ∓ expectedMove`).
+
+### Errors
+
+| Status | `error` | When |
+|---|---|---|
+| `400` | `invalid_expiry` | `expiry` query parameter is not a valid `YYYY-MM-DD` date. |
+| `403` | `tier_restricted` | Starter (Free) plan. Requires Basic or higher. |
+| `404` | `symbol_not_found` | No data for the symbol. Message notes when the market is closed (9:30 AM – 4:00 PM ET). |
+
+---
+
+## Screener
+
+Cross-sectional screening over the live in-memory universe. `POST /v1/screener` runs a structured query — preset/custom universe, a recursive filter tree, computed-formula fields, multi-key sort, field projection, and pagination — and returns the matching rows. `GET /v1/screener/fields` lists the queryable field names and types. A deeper guide to the filter grammar and field taxonomy lives in [screener.md](screener.md).
+
+---
+
+## `POST /v1/screener`
+
+Query the live screener. The request body is a structured query object; the response is `{ meta, data }` where `data` is the projected, sorted, paginated result rows.
+
+**Requires Growth plan or higher.** Some fields/formulas are Alpha-gated; the response `meta.tier` reflects the tier the query ran under.
+
+### Request body
+
+```json
+{
+  "universe": { "type": "preset", "value": "sp500", "symbols": null },
+  "filters": {
+    "op": "and",
+    "conditions": [
+      { "field": "iv_rank", "operator": ">=", "value": 50 },
+      { "field": "put_call_ratio", "operator": "<", "value": 0.8 }
+    ]
+  },
+  "formulas": [
+    { "alias": "vrp", "expression": "atm_iv - hv_20" }
+  ],
+  "sort": [
+    { "field": "iv_rank", "direction": "desc" }
+  ],
+  "select": ["symbol", "price", "iv_rank", "put_call_ratio"],
+  "limit": 50,
+  "offset": 0
+}
+```
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `universe` | object | no | all loaded symbols | `{ type, value, symbols }`. `type` = `preset` (with `value`, e.g. an index name) or an explicit list via `symbols` (array of tickers). |
+| `filters` | object | no | none | Recursive `FilterNode` tree. A branch node has `op` (`and`/`or`) + `conditions[]`; a leaf has `field` **or** `formula`, plus `operator` and `value`. |
+| `sort` | array | no | none | Ordered list of `{ field` **or** `formula, direction }`; `direction` = `asc`/`desc` (default `desc`). |
+| `select` | array | no | all fields | Field names to project into each row. Omit for the full flat row. |
+| `formulas` | array | no | none | Computed columns: `{ alias, expression }`. Expression operates over field names; the alias becomes a usable field for `select`/`sort`/`filters`. |
+| `limit` | integer | no | `50` | Page size. |
+| `offset` | integer | no | `0` | Page offset. |
+
+### Example
+
+```bash
+curl -X POST "https://lab.flashalpha.com/v1/screener" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "filters": { "op": "and", "conditions": [
+          { "field": "iv_rank", "operator": ">=", "value": 50 }
+        ]},
+        "sort": [{ "field": "iv_rank", "direction": "desc" }],
+        "select": ["symbol", "price", "iv_rank"],
+        "limit": 25
+      }'
+```
+
+### Response `200`
+
+```json
+{
+  "meta": {
+    "total_count": 142,
+    "returned_count": 25,
+    "universe_size": 503,
+    "offset": 0,
+    "limit": 25,
+    "tier": "growth",
+    "as_of": "2026-06-05T15:42:10Z"
+  },
+  "data": [
+    { "symbol": "TSLA", "price": 212.34, "iv_rank": 88.2 },
+    { "symbol": "NVDA", "price": 118.91, "iv_rank": 81.5 }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `meta.total_count` | Rows matching the filter before pagination. |
+| `meta.returned_count` | Rows in this page (`data.length`). |
+| `meta.universe_size` | Total symbols in the live store. |
+| `meta.tier` | Tier the query executed under (`growth` / `alpha`). |
+| `data[]` | Projected rows. Shape depends on `select` (or the full flat row) plus any `formulas` aliases. |
+
+### Errors
+
+| Status | `error` | When |
+|---|---|---|
+| `400` | `validation_error` | The query failed validation (bad field, operator, or structure). |
+| `400` | `formula_error` | A `formulas[].expression` failed to parse. |
+| `403` | `tier_restricted` | Caller is below the Growth plan. |
+
+---
+
+## `GET /v1/screener/fields`
+
+Lists every field that can be referenced in a screener query's `filters`, `sort`, `select`, or formula expressions, with its value type.
+
+**Requires an API key** (any authenticated tier).
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/screener/fields"
+```
+
+### Response `200`
+
+```json
+{
+  "fields": [
+    { "name": "atm_iv", "type": "number" },
+    { "name": "iv_rank", "type": "number" },
+    { "name": "put_call_ratio", "type": "number" },
+    { "name": "symbol", "type": "string" }
+  ],
+  "count": 4
+}
+```
+
+Fields are returned sorted by `name`. `type` is the value type used by the filter/sort engine (e.g. `number`, `string`).
 
 ---
 

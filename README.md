@@ -141,6 +141,51 @@ print(f"Arbitrage flags: {len(adv['arbitrage_flags'])}")
 print(f"Var swap fair vol: {adv['variance_swap_fair_values'][0]['fair_vol']}%")
 ```
 
+### Strategy Signals (decision envelope)
+
+Ten decision-support endpoints that score a single trading idea 0-100, classify a regime, and return ranked tradeable structures (legs, credit/debit, breakevens) in one uniform `StrategyDecisionResponse`: flow anomaly, expiry positioning, 0DTE range compression, dealer gamma regime, vol-carry (VRP), yield enhancement (covered call / cash-secured put), surface anomaly, skew, term structure, and tail pricing.
+
+```python
+carry = fa.strategy_vol_carry("SPY", target_short_delta=0.20)  # Alpha+
+print(carry["decision"], carry["score"], carry["regime"])
+for s in carry["best_structures"]:
+    print(s["structure"], s["expiry"], s.get("credit"))
+```
+
+### Earnings Analytics
+
+Earnings calendar, implied-move decomposition (earnings jump vs baseline diffusion), historical earnings surprises and realized moves, expected IV crush and its historical distribution, earnings VRP richness, dealer positioning into the event, strategy-suitability scores, and a cross-sectional earnings screener.
+
+```python
+em = fa.earnings_expected_move("AAPL")                          # Growth+
+print(em["earnings_date"], em.get("implied_move_pct"))
+events = fa.earnings_screener(sort="vrp_richest", days=14)      # Alpha+
+```
+
+### Multi-Leg Structures (pure math)
+
+Deterministic at-expiry P&L diagrams, breakevens, and aggregate Black-Scholes greeks for arbitrary multi-leg option structures — no market-data lookup, you supply the legs.
+
+```python
+pnl = fa.structure_pnl(                                         # Basic+
+    legs=[
+        {"action": "buy",  "type": "call", "strike": 100, "premium": 3.20},
+        {"action": "sell", "type": "call", "strike": 110, "premium": 1.10},
+    ],
+)
+print(pnl["max_profit"], pnl["max_loss"], pnl["breakevens"])
+```
+
+### Zero-DTE Flow, Dispersion & Macro
+
+Intraday simulation-aware 0DTE flow (snapshot, series, dealer hedge-flow, per-strike heatmap and strike-flow), full-tape Net Dealer Premium, multi-resolution OHLCV+flow bars, implied-vs-realized correlation for dispersion / vol-arb, VIX-state over/under-vixing regime, liquidity scores, skew term structure, spot-vol correlation, expected move, VRP history, and the curated symbol universe.
+
+```python
+snap = fa.flow_zero_dte_snapshot("SPY")                         # Growth+
+disp = fa.dispersion(index="SPX", symbols=["AAPL", "MSFT", "NVDA"])  # Alpha+
+vix = fa.vix_state()                                            # Growth+
+```
+
 ### Kelly Criterion Position Sizing
 
 Optimal position sizing using numerical integration over the full lognormal distribution — not the simplified gambling formula.
@@ -251,6 +296,49 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.symbols()` | Symbols with live data | Free+ |
 | `fa.account()` | Account info and quota | Free+ |
 | `fa.health()` | Health check | Public |
+| `fa.surface_svi(symbol)` | Live SVI surface params per expiry slice | Alpha+ |
+| `fa.exposure_sheet(symbol)` | Unified per-strike GEX/DEX/VEX/CHEX/DAG + Line-in-the-Sand + peaks | Growth+ |
+| `fa.exposure_term_structure(symbol)` | Exposure aggregated by DTE bucket and expiry | Growth+ |
+| `fa.exposure_basket(symbols)` | Weighted cross-symbol exposure aggregate | Growth+ |
+| `fa.exposure_oi_diff(symbol)` | Day-over-day open-interest deltas, top-N | Growth+ |
+| `fa.liquidity(symbol)` | Per-expiry execution score and bid-ask spreads | Growth+ |
+| `fa.skew_term(symbol)` | 25-delta skew and risk-reversal term structure | Growth+ |
+| `fa.spot_vol_correlation(symbol)` | Spot-vol correlation (20d/60d) | Growth+ |
+| `fa.dispersion(index, symbols, ...)` | Implied-vs-realized correlation / dispersion vol-arb | Alpha+ |
+| `fa.expected_move(symbol)` | Straddle-implied expected move per expiry | Basic+ |
+| `fa.realized_volatility(symbol)` | Range-based realized vol estimators (10d/20d/30d) | Alpha+ |
+| `fa.volatility_forecast(symbol, dist=...)` | Conditional vol forecasts (EWMA / HAR-RV / GARCH) | Alpha+ |
+| `fa.vrp_history(symbol)` | Daily VRP time series for charting/backtesting | Alpha+ |
+| `fa.vix_state()` | Over/under-vixing regime (VIX vs SPX realized vol) | Growth+ |
+| `fa.universe(...)` | Curated tier-1/tier-2 symbol directory | Public |
+| `fa.screener_fields()` | List screener-referenceable fields and types | Free+ |
+| `fa.flow_dealer_premium(symbol)` | Full-tape Net Dealer Premium roll-up | Alpha+ |
+| `fa.flow_stock_bars(symbol, resolution=...)` | Multi-resolution OHLCV+flow bars | Alpha+ |
+| `fa.flow_zero_dte_snapshot(symbol)` | Live intraday 0DTE shape + flow direction | Growth+ |
+| `fa.flow_zero_dte_series(symbol)` | Intraday 0DTE metric time series | Growth+ |
+| `fa.flow_zero_dte_hedge_flow(symbol)` | Dealer hedge-flow time series (0DTE) | Growth+ |
+| `fa.flow_zero_dte_heatmap(symbol)` | Per-strike 0DTE intraday heatmap | Alpha+ |
+| `fa.flow_zero_dte_strike_flow(symbol)` | Per-strike signed aggressor 0DTE flow | Alpha+ |
+| `fa.strategy_flow_anomaly(symbol)` | Strategy signal: directional flow imbalance | Growth+ |
+| `fa.strategy_expiry_positioning(symbol)` | Strategy signal: OPEX pin / iron fly | Basic+ |
+| `fa.strategy_zero_dte(symbol)` | Strategy signal: same-day 0DTE range compression | Growth+ (+0DTE) |
+| `fa.strategy_dealer_regime(symbol)` | Strategy signal: dealer gamma regime | Growth+ |
+| `fa.strategy_vol_carry(symbol)` | Strategy signal: VRP carry / short vol | Alpha+ |
+| `fa.strategy_yield_enhancement(symbol)` | Strategy signal: covered call / cash-secured put | Growth+ |
+| `fa.strategy_surface_anomaly(symbol)` | Strategy signal: rich/cheap wings vs SVI fit | Alpha+ |
+| `fa.strategy_skew(symbol)` | Strategy signal: skew richness | Growth+ |
+| `fa.strategy_term_structure(symbol)` | Strategy signal: IV term-structure slope | Growth+ |
+| `fa.strategy_tail_pricing(symbol)` | Strategy signal: tail (deep-wing) pricing | Growth+ |
+| `fa.earnings_calendar(...)` | Upcoming earnings calendar | Growth+ |
+| `fa.earnings_expected_move(symbol)` | Earnings implied-move decomposition | Growth+ |
+| `fa.earnings_history(symbol)` | Past earnings: surprises, moves, IV crush | Growth+ |
+| `fa.earnings_iv_crush(symbol)` | Expected IV crush + historical distribution | Growth+ |
+| `fa.earnings_vrp(symbol)` | Earnings VRP richness assessment | Alpha+ |
+| `fa.earnings_dealer_positioning(symbol)` | Dealer positioning into the earnings event | Alpha+ |
+| `fa.earnings_strategies(symbol)` | Earnings strategy-suitability scores | Alpha+ |
+| `fa.earnings_screener(...)` | Cross-sectional earnings screener | Alpha+ |
+| `fa.structure_pnl(legs, ...)` | Multi-leg at-expiry P&L, breakevens, max P/L | Basic+ |
+| `fa.structure_greeks(legs, spot=...)` | Aggregate multi-leg Black-Scholes greeks | Basic+ |
 
 ## Other SDKs
 

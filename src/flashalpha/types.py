@@ -3635,3 +3635,1426 @@ class FlowSignalsSummaryResponse(TypedDict, total=False):
     closing_premium: float
     # Highest-scoring signals (≤ 10). Same shape as ``FlowSignal``.
     top_signals: List[FlowSignal]
+
+
+# ─── Strategy Signals (shared decision envelope) ─────────────────────────────
+#
+# Typed model for the ten ``GET /v1/strategies/*/{symbol}`` endpoints. Every
+# strategy returns the SAME envelope shape — only ``metrics`` and ``regime``
+# change between strategies. ``metrics`` is a free-form ``Dict[str, Any]``
+# (the keys documented per-endpoint differ; ``underlying_price`` is always
+# present), so one ``StrategyDecisionResponse`` covers all ten named methods.
+
+
+class StrategyLeg(TypedDict, total=False):
+    """One leg of a proposed tradeable structure."""
+
+    # ``"buy"`` (alias ``"long"``) or ``"sell"`` (alias ``"short"``).
+    action: str
+    # ``"call"`` or ``"put"``.
+    type: str
+    strike: Optional[float]
+    # Greek delta of the leg (signed).
+    delta: Optional[float]
+    # Per-contract premium paid/received.
+    premium: Optional[float]
+    # Number of contracts.
+    quantity: Optional[int]
+
+
+class StrategyStructure(TypedDict, total=False):
+    """One ranked candidate structure from ``best_structures[]``.
+
+    Pure-signal strategies (``skew``, ``term_structure``, ``tail_pricing``)
+    always return an empty ``best_structures`` list — they emit a read, not a
+    trade.
+    """
+
+    # 1-based rank (1 = best).
+    rank: Optional[int]
+    # Structure name (e.g. ``"short_put_spread"``, ``"iron_fly"``,
+    # ``"iron_condor"``, ``"covered_call"``). Free-form.
+    structure: Optional[str]
+    # ``"yyyy-MM-dd"`` of the structure's target expiry.
+    expiry: Optional[str]
+    legs: List[StrategyLeg]
+    # Net credit collected (``None`` for debit structures).
+    credit: Optional[float]
+    # Net debit paid (``None`` for credit structures).
+    debit: Optional[float]
+    # Max profit / loss at expiry (``None`` when unbounded on that side).
+    max_profit: Optional[float]
+    max_loss: Optional[float]
+    # Underlying prices where P&L crosses zero.
+    breakevens: List[float]
+    # 0-100 edge score for this structure.
+    edge_score: Optional[int]
+    # 0-1 liquidity score for this structure.
+    liquidity_score: Optional[float]
+
+
+class StrategyRiskFlag(TypedDict, total=False):
+    """One risk callout attached to a strategy decision."""
+
+    # ``"low"`` / ``"medium"`` / ``"high"``.
+    severity: Optional[str]
+    # Machine-readable code (e.g. ``"EARNINGS_BEFORE_EXPIRY"``).
+    code: Optional[str]
+    # Human-readable message — safe to surface verbatim.
+    message: Optional[str]
+
+
+class StrategyDataQuality(TypedDict, total=False):
+    """Input-quality gate. Gate on ``score`` before acting on a decision."""
+
+    # 0-100 input-quality score.
+    score: Optional[int]
+    # Free-form warning strings (empty when clean).
+    warnings: List[str]
+
+
+class StrategyDecisionResponse(TypedDict, total=False):
+    """Uniform decision envelope for every ``GET /v1/strategies/*/{symbol}``.
+
+    Shared across all ten strategy endpoints (flow-anomaly,
+    expiry-positioning, zero-dte, dealer-regime, vol-carry,
+    yield-enhancement, surface-anomaly, skew, term-structure,
+    tail-pricing). Only ``metrics`` and ``regime`` vary between strategies;
+    everything else has a fixed shape.
+
+    Strategies can short-circuit with ``decision == "insufficient_data"``
+    and a strategy-specific ``regime`` (e.g. ``"symbol_not_covered_historically"``,
+    ``"vrp_unavailable"``, ``"no_fitted_surface"``, ``"no_skew_data"``).
+    """
+
+    # Which strategy produced this result (e.g. ``"flow_anomaly"``).
+    strategy: str
+    # Resolved, upper-cased underlying symbol.
+    symbol: str
+    # ISO-8601 UTC time the decision was built.
+    timestamp: str
+    # ``"insufficient_data"`` / ``"avoid"`` / ``"neutral"`` / ``"candidate"``.
+    decision: str
+    # 0-100 strategy score (drives ``decision``).
+    score: Optional[int]
+    # 0-1 input-quality / sample-size weight.
+    confidence: Optional[float]
+    # Strategy-specific regime label (vocabulary differs per endpoint).
+    regime: Optional[str]
+    # Ranked candidate structures (empty for pure-signal strategies).
+    best_structures: List[StrategyStructure]
+    # Strategy-specific key/value bag. ``underlying_price`` always present.
+    metrics: Dict[str, Any]
+    # Optional risk callouts (often empty).
+    risk_flags: List[StrategyRiskFlag]
+    # Human-readable rationale for the decision.
+    why: List[str]
+    # Conditions under which the read should be discarded.
+    avoid_if: List[str]
+    # Input-quality gate — check before trading.
+    data_quality: StrategyDataQuality
+
+
+# ─── Earnings ────────────────────────────────────────────────────────────────
+#
+# Typed models for the eight ``GET /v1/earnings/*`` endpoints. Earnings-event
+# analytics derived from the upcoming/historical earnings calendar plus live
+# options term structure.
+
+
+class EarningsCalendarEvent(TypedDict, total=False):
+    """One upcoming earnings event row (``events[]`` of the calendar)."""
+
+    symbol: Optional[str]
+    company_name: Optional[str]
+    # ``"yyyy-MM-dd"``.
+    earnings_date: Optional[str]
+    # Reporting session: ``"bmo"`` (before open) / ``"amc"`` (after close);
+    # may be null/unknown.
+    timing: Optional[str]
+    # Whether the date is confirmed (vs. estimated) by the provider.
+    is_confirmed: Optional[bool]
+    fiscal_period: Optional[str]
+    fiscal_year: Optional[int]
+    # Provider importance rating (higher = more market-moving); nullable.
+    importance: Optional[int]
+    eps_estimate: Optional[float]
+    # Stored earnings-implied move (%), if available; nullable.
+    implied_move_pct: Optional[float]
+    # Calendar days from today (UTC) to the earnings date.
+    days_to_event: Optional[int]
+
+
+class EarningsCalendarResponse(TypedDict, total=False):
+    """Upcoming earnings calendar from ``GET /v1/earnings/calendar`` (Growth+)."""
+
+    events: List[EarningsCalendarEvent]
+    count: Optional[int]
+
+
+class EarningsExpectedMoveBlock(TypedDict, total=False):
+    """Earnings-implied move decomposition.
+
+    ``None`` (the whole block) when the pre/post-event expiry IVs cannot be
+    resolved from the live term structure.
+    """
+
+    # Total expected move (%) implied by the front straddle.
+    raw_straddle_pct: Optional[float]
+    # Portion (%) attributed to the earnings jump.
+    earnings_implied_pct: Optional[float]
+    # Portion (%) attributed to ordinary baseline diffusion.
+    baseline_drift_pct: Optional[float]
+    # ATM IV (%) of the pre-event (front) expiry.
+    earnings_iv: Optional[float]
+    # ATM IV (%) of the first post-event expiry.
+    term_iv_post_event: Optional[float]
+    # Term-structure kink (%) across the event.
+    term_kink_pct: Optional[float]
+
+
+class EarningsExpectedMoveResponse(TypedDict, total=False):
+    """Live earnings expected-move decomposition from
+    ``GET /v1/earnings/expected-move/{symbol}`` (Growth+).
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    earnings_date: Optional[str]
+    # Reporting session (``"bmo"`` / ``"amc"``).
+    session: Optional[str]
+    days_to_event: Optional[int]
+    # ``None`` when the decomposition can't be resolved.
+    expected_move: Optional[EarningsExpectedMoveBlock]
+
+
+class EarningsHistoryRow(TypedDict, total=False):
+    """One past earnings event (``history[]``)."""
+
+    date: Optional[str]
+    fiscal_period: Optional[str]
+    fiscal_year: Optional[int]
+    eps_estimate: Optional[float]
+    eps_actual: Optional[float]
+    # EPS surprise vs. estimate (%); positive = beat.
+    eps_surprise_pct: Optional[float]
+    revenue_actual: Optional[float]
+    revenue_surprise_pct: Optional[float]
+    # Earnings-implied move (%) priced before the event.
+    implied_move_pct: Optional[float]
+    # Realized post-earnings move (%); sign indicates direction.
+    actual_move_pct: Optional[float]
+    # Realized IV crush (%) from pre- to post-event ATM IV.
+    iv_crush_pct: Optional[float]
+    pre_atm_iv: Optional[float]
+    post_atm_iv: Optional[float]
+
+
+class EarningsHistoryResponse(TypedDict, total=False):
+    """Past earnings events from ``GET /v1/earnings/history/{symbol}`` (Growth+).
+
+    Only already-reported events (with an actual EPS result) are returned.
+    """
+
+    symbol: str
+    count: Optional[int]
+    history: List[EarningsHistoryRow]
+
+
+class EarningsIvCrushCurrent(TypedDict, total=False):
+    """Live IV-crush estimate for the next event.
+
+    ``None`` (the whole block) when no upcoming event or the term structure
+    can't be resolved.
+    """
+
+    # Expected ATM IV drop (%) = ``(pre_iv − post_iv) / pre_iv × 100``.
+    expected_crush_pct: Optional[float]
+    pre_iv: Optional[float]
+    post_iv: Optional[float]
+
+
+class EarningsIvCrushDistribution(TypedDict, total=False):
+    """Historical realized IV-crush distribution (up to last 20 events)."""
+
+    median: Optional[float]
+    p25: Optional[float]
+    p75: Optional[float]
+    # Smallest / largest historical crush (%).
+    worst: Optional[float]
+    best: Optional[float]
+    count: Optional[int]
+
+
+class EarningsIvCrushResponse(TypedDict, total=False):
+    """Expected IV crush + historical distribution from
+    ``GET /v1/earnings/iv-crush/{symbol}`` (Growth+).
+    """
+
+    symbol: str
+    as_of: str
+    # Next event date; ``None`` when no upcoming event but history exists.
+    earnings_date: Optional[str]
+    # ``None`` when no upcoming event / term structure unresolvable.
+    current_estimate: Optional[EarningsIvCrushCurrent]
+    distribution: EarningsIvCrushDistribution
+
+
+class EarningsVrpBlock(TypedDict, total=False):
+    """Earnings VRP — implied event move vs. realized history of actual moves."""
+
+    # Live earnings-implied move (%); falls back to stored implied move.
+    implied_move_pct: Optional[float]
+    # Median / mean of historical absolute actual moves (%).
+    realized_median: Optional[float]
+    realized_mean: Optional[float]
+    # ``implied_move / realized_median`` — >1 means options price more.
+    premium_ratio: Optional[float]
+    # Implied move vs. realized distribution (z); ``None`` when <5 moves.
+    z_score: Optional[float]
+    # Percentile of implied within historical realized; ``None`` when <5.
+    percentile: Optional[int]
+    # ``"rich"`` / ``"slightly_rich"`` / ``"fair"`` / ``"slightly_cheap"`` /
+    # ``"cheap"`` / ``"insufficient_data"``.
+    assessment: Optional[str]
+    # ``"downside_overpriced"`` / ``"upside_overpriced"`` or ``None``.
+    directional_bias: Optional[str]
+
+
+class EarningsSurpriseReaction(TypedDict, total=False):
+    """Average post-earnings move by EPS-surprise bucket."""
+
+    # Avg actual move (%) following EPS beats (surprise > 1%).
+    beat_avg_move_pct: Optional[float]
+    # Avg actual move (%) following EPS misses (surprise < −1%).
+    miss_avg_move_pct: Optional[float]
+    # Avg actual move (%) following in-line results.
+    inline_avg_move_pct: Optional[float]
+
+
+class EarningsVrpResponse(TypedDict, total=False):
+    """Earnings volatility-risk-premium from
+    ``GET /v1/earnings/vrp/{symbol}`` (Alpha+).
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    earnings_date: Optional[str]
+    days_to_event: Optional[int]
+    earnings_vrp: EarningsVrpBlock
+    surprise_reaction: EarningsSurpriseReaction
+
+
+class EarningsDealerLevels(TypedDict, total=False):
+    """Dealer levels scoped to the event-week expiries."""
+
+    gamma_flip: Optional[float]
+    call_wall: Optional[float]
+    put_wall: Optional[float]
+    highest_oi_strike: Optional[float]
+
+
+class EarningsDealerGexBucket(TypedDict, total=False):
+    """One GEX bucket (``pre_event`` / ``event_week`` / ``post_event``)."""
+
+    bucket: Optional[str]
+    net_gex: Optional[float]
+    contract_count: Optional[int]
+
+
+class EarningsDealerTopStrike(TypedDict, total=False):
+    """One of the top strikes by absolute net GEX."""
+
+    strike: Optional[float]
+    net_gex: Optional[float]
+    call_oi: Optional[int]
+    put_oi: Optional[int]
+
+
+class EarningsDealerPositioningResponse(TypedDict, total=False):
+    """Dealer exposure scoped to the earnings event from
+    ``GET /v1/earnings/dealer-positioning/{symbol}`` (Alpha+).
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    earnings_date: Optional[str]
+    # Closest options expiry on or after the earnings date; ``None`` if none.
+    event_expiry: Optional[str]
+    levels: EarningsDealerLevels
+    gex_by_dte_bucket: List[EarningsDealerGexBucket]
+    top_strikes: List[EarningsDealerTopStrike]
+    # Ratio of event-expiry CHEX to full-chain CHEX; ``None`` when N/A.
+    charm_acceleration: Optional[float]
+    # ``"positive_gamma"`` / ``"negative_gamma"`` / ``"undetermined"``.
+    regime: Optional[str]
+
+
+class EarningsStrategyScores(TypedDict, total=False):
+    """0-100 suitability scores per earnings structure."""
+
+    long_straddle: Optional[int]
+    short_strangle: Optional[int]
+    iron_condor: Optional[int]
+    calendar_spread: Optional[int]
+    earnings_diagonal: Optional[int]
+
+
+class EarningsStrategyContext(TypedDict, total=False):
+    """Scoring inputs behind the earnings strategy scores."""
+
+    premium_ratio: Optional[float]
+    iv_crush_median: Optional[float]
+    # ``"positive_gamma"`` / ``"negative_gamma"`` / ``"undetermined"``.
+    regime: Optional[str]
+    implied_move_pct: Optional[float]
+
+
+class EarningsStrategiesResponse(TypedDict, total=False):
+    """Earnings strategy-suitability scores from
+    ``GET /v1/earnings/strategies/{symbol}`` (Alpha+).
+    """
+
+    symbol: str
+    as_of: str
+    earnings_date: Optional[str]
+    scores: EarningsStrategyScores
+    context: EarningsStrategyContext
+
+
+class EarningsScreenerEvent(TypedDict, total=False):
+    """One row of the earnings screener (``events[]``)."""
+
+    symbol: Optional[str]
+    company_name: Optional[str]
+    earnings_date: Optional[str]
+    days_to_event: Optional[int]
+    timing: Optional[str]
+    importance: Optional[int]
+    implied_move_pct: Optional[float]
+    # VRP premium ratio (implied / realized-median); ``None`` when no history.
+    premium_ratio: Optional[float]
+    # Median historical IV crush (%); ``None`` when no crush history.
+    iv_crush_median: Optional[float]
+    # VRP richness classification; ``None`` when no history.
+    assessment: Optional[str]
+
+
+class EarningsScreenerResponse(TypedDict, total=False):
+    """Cross-sectional earnings screener from
+    ``GET /v1/earnings/screener`` (Alpha+).
+
+    ``count`` is the total matched before ``limit`` (the ``events`` array is
+    capped at ``limit``).
+    """
+
+    events: List[EarningsScreenerEvent]
+    count: Optional[int]
+
+
+# ─── Structures (pure-math, POST) ────────────────────────────────────────────
+#
+# Typed models for ``POST /v1/structures/pnl`` and
+# ``POST /v1/structures/greeks``. Deterministic functions of the supplied
+# legs — no market-data lookup. Request leg dicts use camelCase-free simple
+# keys for pnl, plus ``expiry``/``impliedVol`` (camelCase on the wire) for
+# greeks.
+
+
+class StructurePnlLeg(TypedDict, total=False):
+    """One leg of a P&L structure request.
+
+    ``action`` accepts ``buy``/``sell`` (aliases ``long``/``short``);
+    ``type`` accepts ``call``/``put`` (aliases ``c``/``p``).
+    """
+
+    action: str
+    type: str
+    strike: float
+    # Per-contract premium paid/received (``>= 0``).
+    premium: float
+    # Number of contracts (``> 0``; defaults to 1 server-side).
+    quantity: int
+
+
+class StructurePnlPoint(TypedDict, total=False):
+    """One sample of the at-expiry P&L curve."""
+
+    underlying: float
+    pnl: float
+
+
+class StructurePnlResponse(TypedDict, total=False):
+    """At-expiry P&L curve from ``POST /v1/structures/pnl`` (Basic+).
+
+    ``max_profit`` / ``max_loss`` are ``None`` on any side that is unbounded.
+    """
+
+    # Echoes the request legs verbatim.
+    legs: List[StructurePnlLeg]
+    pnl_curve: List[StructurePnlPoint]
+    # Underlying prices where P&L crosses zero (may be empty).
+    breakevens: List[float]
+    max_profit: Optional[float]
+    max_loss: Optional[float]
+
+
+class StructureGreeksLeg(TypedDict, total=False):
+    """One leg of a Greeks structure request.
+
+    Carries its own ``expiry`` and ``impliedVol`` (camelCase on the wire) so
+    calendars and diagonals aggregate correctly.
+    """
+
+    action: str
+    type: str
+    strike: float
+    # ``"yyyy-MM-dd"``.
+    expiry: str
+    # Implied vol as a decimal (e.g. ``0.28``); ``> 0``. CamelCase on wire.
+    impliedVol: float
+    quantity: int
+
+
+class StructurePositionGreeks(TypedDict, total=False):
+    """Aggregated position Greeks (signed for direction, scaled by quantity)."""
+
+    delta: Optional[float]
+    gamma: Optional[float]
+    theta: Optional[float]
+    vega: Optional[float]
+    rho: Optional[float]
+    vanna: Optional[float]
+    charm: Optional[float]
+
+
+class StructureGreeksResponse(TypedDict, total=False):
+    """Aggregate position Greeks from ``POST /v1/structures/greeks`` (Basic+).
+
+    Top-level keys are snake_case; echoed ``legs`` keep the request's
+    camelCase (``impliedVol``).
+    """
+
+    spot: Optional[float]
+    as_of: str
+    # The resolved ``today`` valuation date.
+    valuation_date: Optional[str]
+    rate: Optional[float]
+    dividend_yield: Optional[float]
+    legs: List[StructureGreeksLeg]
+    position_greeks: StructurePositionGreeks
+
+
+# ─── Surface SVI ─────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/surface/svi/{symbol}`` (Alpha+). A lightweight
+# subset of the advanced-volatility payload — just the per-expiry SVI params.
+# Reuses ``AdvVolSviParam`` for the per-slice rows.
+
+
+class SurfaceSviResponse(TypedDict, total=False):
+    """Live SVI-fitted surface from ``GET /v1/surface/svi/{symbol}`` (Alpha+).
+
+    ``svi_parameters`` is ordered by ``days_to_expiry``; each slice gives the
+    raw SVI params (``a``, ``b``, ``rho``, ``m``, ``sigma``), the per-expiry
+    ``forward``, ``atm_total_variance``, and ``atm_iv`` (%). Reuses
+    ``AdvVolSviParam`` for the rows.
+    """
+
+    symbol: str
+    # Mid of the underlying.
+    underlying_price: Optional[float]
+    as_of: str
+    market_open: Optional[bool]
+    svi_parameters: List[AdvVolSviParam]
+
+
+# ─── Expected Move ───────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/expected-move/{symbol}`` (Basic+). NOTE: the items
+# inside ``expected_moves`` use camelCase keys (``daysToExpiry``, ``atmIv``,
+# ``expectedMove``, ``expectedMovePct``, ``lowerBound``, ``upperBound``) even
+# though the top-level keys are snake_case.
+
+
+class ExpectedMoveItem(TypedDict, total=False):
+    """One per-expiry expected-move row (camelCase keys on the wire)."""
+
+    expiry: Optional[str]
+    # Calendar days. CamelCase on wire.
+    daysToExpiry: Optional[int]
+    # ATM IV as a decimal, or ``None`` when no ATM IV. CamelCase on wire.
+    atmIv: Optional[float]
+    # 1-σ move in price terms. CamelCase on wire.
+    expectedMove: Optional[float]
+    # As a percentage of spot. CamelCase on wire.
+    expectedMovePct: Optional[float]
+    # ``spot − expectedMove`` / ``spot + expectedMove``. CamelCase on wire.
+    lowerBound: Optional[float]
+    upperBound: Optional[float]
+
+
+class ExpectedMoveResponse(TypedDict, total=False):
+    """Straddle-implied expected move per expiry from
+    ``GET /v1/expected-move/{symbol}`` (Basic+).
+
+    Top-level keys are snake_case; ``expected_moves`` items are camelCase.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    expected_moves: List[ExpectedMoveItem]
+
+
+# ─── Exposure Sheet ──────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/exposure/sheet/{symbol}`` (Growth+). Unified
+# per-strike GEX/DEX/VEX/CHEX/DAG rowset + chain totals, Line-in-the-Sand
+# inflection strike, all gamma peaks, and OPEX / triple-witching flags.
+
+
+class ExposureSheetTotals(TypedDict, total=False):
+    """Chain totals across all greeks plus DAG (delta-adjusted gamma)."""
+
+    net_gex: Optional[float]
+    net_dex: Optional[float]
+    net_vex: Optional[float]
+    net_chex: Optional[float]
+    # Σ DAG = ``|delta| × gamma × OI × 100 × spot² × 0.01`` (puts sign-flipped).
+    net_dag: Optional[float]
+
+
+class ExposureSheetLis(TypedDict, total=False):
+    """Line-in-the-Sand inflection strike (largest ``|d²(net_gex)/dK²|``).
+
+    ``None`` (whole block) when the chain has <3 strikes or every second
+    difference is zero. ``magnitude`` is currently always ``1.0`` (reserved).
+    """
+
+    strike: Optional[float]
+    magnitude: Optional[float]
+
+
+class ExposureSheetPeak(TypedDict, total=False):
+    """One local maximum of ``|net_gex|`` (``strength ≥ 0.1``)."""
+
+    strike: Optional[float]
+    net_gex: Optional[float]
+    # Fraction of max ``|net_gex|`` in the chain.
+    strength: Optional[float]
+    # ``"call_wall"`` when ``net_gex ≥ 0``, else ``"put_wall"``.
+    side: Optional[str]
+
+
+class ExposureSheetStrike(TypedDict, total=False):
+    """One unified per-strike row joining all greeks + DAG + OI."""
+
+    strike: Optional[float]
+    call_gex: Optional[float]
+    put_gex: Optional[float]
+    net_gex: Optional[float]
+    call_dex: Optional[float]
+    put_dex: Optional[float]
+    net_dex: Optional[float]
+    call_vex: Optional[float]
+    put_vex: Optional[float]
+    net_vex: Optional[float]
+    call_chex: Optional[float]
+    put_chex: Optional[float]
+    net_chex: Optional[float]
+    # Per-strike DAG aggregated across calls + puts.
+    dag: Optional[float]
+    call_oi: Optional[int]
+    put_oi: Optional[int]
+
+
+class ExposureSheetResponse(TypedDict, total=False):
+    """Unified exposure sheet from ``GET /v1/exposure/sheet/{symbol}`` (Growth+).
+
+    ``is_opex`` / ``is_triple_witching`` are only meaningful when an
+    ``expiration`` filter is supplied.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    expiration: Optional[str]
+    # True when ``expiration`` is the holiday-adjusted monthly OPEX.
+    is_opex: Optional[bool]
+    # True when ``is_opex`` AND month ∈ {Mar, Jun, Sep, Dec}.
+    is_triple_witching: Optional[bool]
+    totals: ExposureSheetTotals
+    # ``None`` when not computable. See ``ExposureSheetLis``.
+    lis: Optional[ExposureSheetLis]
+    peaks: List[ExposureSheetPeak]
+    strikes: List[ExposureSheetStrike]
+
+
+# ─── Exposure Term Structure ─────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/exposure/term-structure/{symbol}`` (Growth+).
+# Per-greek exposure aggregated by DTE bucket and rolled up per expiry.
+
+
+class ExposureTermDteBucket(TypedDict, total=False):
+    """One DTE bucket (``0-7d`` / ``8-30d`` / ``31-60d`` / ``61-180d`` /
+    ``180d+``). Buckets with no contracts are omitted.
+    """
+
+    bucket: Optional[str]
+    # Inclusive ``[lower, upper]`` DTE bounds (final bucket upper = int.Max).
+    dte_range: List[int]
+    net_gex: Optional[float]
+    net_dex: Optional[float]
+    net_vex: Optional[float]
+    net_chex: Optional[float]
+    contract_count: Optional[int]
+
+
+class ExposureTermExpiry(TypedDict, total=False):
+    """One per-expiry rollup row, ordered ascending by expiry."""
+
+    expiration: Optional[str]
+    dte: Optional[int]
+    is_opex: Optional[bool]
+    is_triple_witching: Optional[bool]
+    net_gex: Optional[float]
+    net_dex: Optional[float]
+    net_vex: Optional[float]
+    net_chex: Optional[float]
+    # This expiry's ``|net_gex|`` as a share of chain ``Σ|net_gex|`` (0-100).
+    pct_of_chain_gex: Optional[float]
+
+
+class ExposureTermStructureResponse(TypedDict, total=False):
+    """Exposure term structure from
+    ``GET /v1/exposure/term-structure/{symbol}`` (Growth+).
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    by_dte_bucket: List[ExposureTermDteBucket]
+    by_expiry: List[ExposureTermExpiry]
+
+
+# ─── Exposure Basket ─────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/exposure/basket`` (Growth+). Weighted cross-symbol
+# aggregate of GEX/DEX/VEX/CHEX across up to 50 user-supplied symbols.
+
+
+class ExposureBasketAggregate(TypedDict, total=False):
+    """``Σ wᵢ × net_{greek}_i`` after weight renormalisation."""
+
+    net_gex: Optional[float]
+    net_dex: Optional[float]
+    net_vex: Optional[float]
+    net_chex: Optional[float]
+
+
+class ExposureBasketConstituent(TypedDict, total=False):
+    """One basket constituent with its renormalised weight + contribution."""
+
+    symbol: Optional[str]
+    # Renormalised weight (sums to 1 across the response).
+    weight: Optional[float]
+    underlying_price: Optional[float]
+    net_gex: Optional[float]
+    net_dex: Optional[float]
+    net_vex: Optional[float]
+    net_chex: Optional[float]
+    # ``|wᵢ × net_gex_i| / Σ|wⱼ × net_gex_j|`` (0-100, weighted GEX).
+    contribution_pct: Optional[float]
+    # ``"positive_gamma"`` when ``net_gex ≥ 0``, else ``"negative_gamma"``.
+    regime: Optional[str]
+
+
+class ExposureBasketResponse(TypedDict, total=False):
+    """Weighted basket exposure from ``GET /v1/exposure/basket`` (Growth+).
+
+    Symbols with no data are dropped, surviving weights re-normalised, and the
+    dropped tickers reported in ``missing_symbols``.
+    """
+
+    as_of: str
+    # Number of symbols that actually contributed (after drops).
+    constituent_count: Optional[int]
+    missing_symbols: List[str]
+    aggregate: ExposureBasketAggregate
+    constituents: List[ExposureBasketConstituent]
+
+
+# ─── Exposure OI-Diff ────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/exposure/oi-diff/{symbol}`` (Growth+). Day-over-day
+# open-interest deltas — fills the ``top_oi_changes`` placeholder on narrative.
+
+
+class ExposureOiDiffRow(TypedDict, total=False):
+    """One per-contract OI delta row (sorted by ``|oi_change|`` descending)."""
+
+    strike: Optional[float]
+    # ``"C"`` (call) or ``"P"`` (put).
+    type: Optional[str]
+    expiry: Optional[str]
+    today_oi: Optional[int]
+    prior_oi: Optional[int]
+    # Signed: today's OI minus prior trading day's OI.
+    oi_change: Optional[int]
+
+
+class ExposureOiDiffResponse(TypedDict, total=False):
+    """Day-over-day OI deltas from
+    ``GET /v1/exposure/oi-diff/{symbol}`` (Growth+).
+
+    When ``prior_snapshot_available`` is ``False`` the totals are ``0`` and
+    ``top_oi_changes`` is empty.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    prior_snapshot_available: Optional[bool]
+    total_call_oi_change: Optional[int]
+    total_put_oi_change: Optional[int]
+    top_oi_changes: List[ExposureOiDiffRow]
+
+
+# ─── Liquidity ───────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/liquidity/{symbol}`` (Growth+). Per-expiry
+# execution score, spreads, ATM OI depth + chain-level roll-up.
+
+
+class LiquidityExpiry(TypedDict, total=False):
+    """One per-expiry liquidity row."""
+
+    expiration: Optional[str]
+    dte: Optional[int]
+    # ATM bid-ask spread %; ``None`` when neither side quotes.
+    atm_spread_pct: Optional[float]
+    # OI-weighted spread %; ``None`` when no contract qualifies.
+    weighted_spread_pct: Optional[float]
+    # Sum of call+put OI at the strike closest to spot.
+    atm_oi: Optional[int]
+    # 0-100 composite execution score.
+    execution_score: Optional[int]
+    # ``"tight"`` (≥75) / ``"normal"`` (≥50) / ``"wide"`` (≥20) /
+    # ``"illiquid"`` (<20).
+    label: Optional[str]
+
+
+class LiquidityResponse(TypedDict, total=False):
+    """Chain liquidity from ``GET /v1/liquidity/{symbol}`` (Growth+)."""
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    # OI-weighted average of per-expiry ``execution_score`` (0-100).
+    chain_execution_score: Optional[int]
+    best_expiry: Optional[str]
+    worst_expiry: Optional[str]
+    # Number of expiries labelled ``illiquid``.
+    thin_expiry_count: Optional[int]
+    expiries: List[LiquidityExpiry]
+
+
+# ─── Skew Term ───────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/volatility/skew-term/{symbol}`` (Growth+). Skew
+# term structure with vol-desk naming conventions (skew/risk-reversal/butterfly).
+
+
+class SkewTermExpiry(TypedDict, total=False):
+    """One per-expiry skew row with the named conventions."""
+
+    expiry: Optional[str]
+    dte: Optional[int]
+    atm_iv: Optional[float]
+    put_25d_iv: Optional[float]
+    call_25d_iv: Optional[float]
+    put_10d_iv: Optional[float]
+    call_10d_iv: Optional[float]
+    # ``put_25d_iv − call_25d_iv``. Positive ⇒ put skew dominant.
+    skew_25d: Optional[float]
+    # ``call_25d_iv − put_25d_iv`` (= ``−skew_25d``). FX / vol-desk convention.
+    risk_reversal_25d: Optional[float]
+    # ``(call_25d_iv + put_25d_iv) / 2 − atm_iv``. Wing premium over ATM.
+    butterfly_25d: Optional[float]
+    # Second difference of the put wing. Positive ⇒ steep tail.
+    tail_convexity: Optional[float]
+
+
+class SkewTermResponse(TypedDict, total=False):
+    """Skew term structure from
+    ``GET /v1/volatility/skew-term/{symbol}`` (Growth+).
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    expiries: List[SkewTermExpiry]
+
+
+# ─── Spot-Vol Correlation ────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/volatility/spot-vol-correlation/{symbol}`` (Growth+).
+
+
+class SpotVolCorrelationResponse(TypedDict, total=False):
+    """Spot-vol correlation from
+    ``GET /v1/volatility/spot-vol-correlation/{symbol}`` (Growth+).
+
+    Daily Pearson between spot log-returns and first-differences of ATM IV
+    over 20-day and 60-day windows. Equity indices typically run strongly
+    negative.
+    """
+
+    symbol: str
+    as_of: str
+    # ``None`` when variance is zero or fewer than 20 points exist.
+    spot_vol_correlation_20d: Optional[float]
+    spot_vol_correlation_60d: Optional[float]
+    data_points_20d: Optional[int]
+    data_points_60d: Optional[int]
+    # Plain-English label keyed off the shorter window. Safe to surface.
+    interpretation: Optional[str]
+
+
+# ─── Realized Volatility ─────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/volatility/realized/{symbol}`` (Alpha+). Range-based
+# realized (historical) vol estimators over 10/20/30-day windows.
+
+
+class RealizedVolatilityEstimator(TypedDict, total=False):
+    """One estimator's annualized realized vol (percent) by window length.
+
+    Each field serialises as JSON ``null`` when there are too few observations
+    in the window — treat ``None`` as "not computable."
+    """
+
+    rv10: Optional[float]
+    rv20: Optional[float]
+    rv30: Optional[float]
+
+
+class RealizedVolatilityEstimators(TypedDict, total=False):
+    """The five fixed range-based estimators, each keyed by window."""
+
+    close_to_close: RealizedVolatilityEstimator
+    parkinson: RealizedVolatilityEstimator
+    garman_klass: RealizedVolatilityEstimator
+    rogers_satchell: RealizedVolatilityEstimator
+    yang_zhang: RealizedVolatilityEstimator
+
+
+class RealizedVolatilityResponse(TypedDict, total=False):
+    """Realized vol estimators from
+    ``GET /v1/volatility/realized/{symbol}`` (Alpha+).
+
+    All ``rvN`` values are annualized realized vol expressed in percent.
+    """
+
+    symbol: str
+    as_of: str
+    underlying_price: Optional[float]
+    estimators: RealizedVolatilityEstimators
+
+
+# ─── Volatility Forecast ─────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/volatility/forecast/{symbol}`` (Alpha+). Conditional
+# vol forecasts via EWMA (λ=0.94), HAR-RV and GARCH(1,1) MLE.
+
+
+class VolatilityForecastEwma(TypedDict, total=False):
+    """EWMA block. ``lambda`` is the decay factor (0.94)."""
+
+    lambda: float
+    vol_annualized: Optional[float]
+    next_day_forecast: Optional[float]
+
+
+class VolatilityForecastHarComponents(TypedDict, total=False):
+    """Daily / weekly / monthly HAR-RV component vols (annualized percent)."""
+
+    daily: Optional[float]
+    weekly: Optional[float]
+    monthly: Optional[float]
+
+
+class VolatilityForecastHar(TypedDict, total=False):
+    """HAR-RV block."""
+
+    vol_annualized: Optional[float]
+    components: VolatilityForecastHarComponents
+    next_day_forecast: Optional[float]
+
+
+class VolatilityForecastGarchParams(TypedDict, total=False):
+    """Fitted GARCH(1,1) parameters. ``dof`` is present only for ``student_t``."""
+
+    omega: Optional[float]
+    alpha: Optional[float]
+    beta: Optional[float]
+    dof: Optional[float]
+
+
+class VolatilityForecastGarchPoint(TypedDict, total=False):
+    """One GARCH multi-step forecast point (annualized percent)."""
+
+    horizon_days: Optional[int]
+    vol_annualized: Optional[float]
+
+
+class VolatilityForecastGarch(TypedDict, total=False):
+    """GARCH(1,1) block.
+
+    ``forecast`` is ``None`` when the fit did not converge; ``params.dof`` is
+    only populated for the ``student_t`` distribution.
+    """
+
+    model: Optional[str]
+    distribution: Optional[str]
+    params: VolatilityForecastGarchParams
+    persistence: Optional[float]
+    # ``None`` when persistence ≥ 1 (long-run vol undefined).
+    long_run_vol_annualized: Optional[float]
+    half_life_days: Optional[float]
+    converged: Optional[bool]
+    forecast: Optional[List[VolatilityForecastGarchPoint]]
+
+
+class VolatilityForecastResponse(TypedDict, total=False):
+    """Conditional vol forecasts from
+    ``GET /v1/volatility/forecast/{symbol}`` (Alpha+).
+
+    All vols are annualized and expressed in percent.
+    """
+
+    symbol: str
+    as_of: str
+    ewma: VolatilityForecastEwma
+    har_rv: VolatilityForecastHar
+    garch: VolatilityForecastGarch
+
+
+# ─── Dispersion ──────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/dispersion`` (Alpha+). Implied vs realized
+# correlation between an index and a user-supplied basket of constituents.
+
+
+class DispersionContributor(TypedDict, total=False):
+    """One constituent's contribution to basket vol (sorted descending)."""
+
+    symbol: Optional[str]
+    weight: Optional[float]
+    # The constituent's ATM IV (decimal).
+    iv: Optional[float]
+    # ``wᵢ × σᵢ``. ``Σ contribution == implied_vol_basket`` by construction.
+    contribution_to_basket_vol: Optional[float]
+
+
+class DispersionResponse(TypedDict, total=False):
+    """Implied-vs-realized correlation from ``GET /v1/dispersion`` (Alpha+).
+
+    Correlation fields serialise as JSON ``null`` (not ``NaN``) when the
+    underlying math is undefined — treat ``None`` as "not computable from
+    this basket / window."
+    """
+
+    as_of: str
+    index: Optional[str]
+    constituent_count: Optional[int]
+    missing_symbols: List[str]
+    horizon_days: Optional[int]
+    # Demeterfi-Derman-Kani implied correlation; ``None`` for degenerate basket.
+    implied_correlation: Optional[float]
+    # 1-factor realized correlation over the horizon; ``None`` when N/A.
+    realized_correlation: Optional[float]
+    # ``implied − realized``. Positive ⇒ market pricing in more correlation.
+    correlation_premium: Optional[float]
+    # Index ATM IV (decimal).
+    implied_vol_index: Optional[float]
+    # ``Σ wᵢ σᵢ`` after weight renormalisation.
+    implied_vol_basket: Optional[float]
+    top_contributors: List[DispersionContributor]
+
+
+# ─── VIX State ───────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/macro/vix-state`` (Growth+). "overvixing /
+# undervixing" regime — VIX vs SPX 20-day realized vol.
+
+
+class VixStateResponse(TypedDict, total=False):
+    """VIX-state regime from ``GET /v1/macro/vix-state`` (Growth+)."""
+
+    as_of: str
+    # VIX spot.
+    vix: Optional[float]
+    # SPX 20-day annualised realized vol (%).
+    spx_rv_20d: Optional[float]
+    # ``vix − spx_rv_20d`` (vol points).
+    spread: Optional[float]
+    # ``vix / spx_rv_20d``. ``None`` when ``spx_rv_20d == 0``.
+    ratio: Optional[float]
+    # ``"overvixing"`` (spread ≥ 5) / ``"undervixing"`` (≤ 0) / ``"neutral"``.
+    state: Optional[str]
+    # Plain-English label. Safe to surface verbatim.
+    interpretation: Optional[str]
+
+
+# ─── Universe ────────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/universe`` (public). Curated tier-1 / tier-2
+# symbol directory the screener loop keeps pre-warmed.
+
+
+class UniverseSymbol(TypedDict, total=False):
+    """One universe symbol with its tier + pre-warm flag."""
+
+    symbol: Optional[str]
+    # 1 = high-traffic loop (fast refresh); 2 = remaining curated symbols.
+    tier: Optional[int]
+    # Currently always ``True`` — the screener loop keeps members populated.
+    is_pre_warmed: Optional[bool]
+
+
+class UniverseResponse(TypedDict, total=False):
+    """Curated symbol universe from ``GET /v1/universe`` (public)."""
+
+    as_of: str
+    # Total universe size (tier-1 ∪ tier-2, deduplicated).
+    count: Optional[int]
+    # ``min(count, limit)``.
+    returned: Optional[int]
+    limit: Optional[int]
+    # Echoes the effective sort (unknown values fall back to ``"tier"``).
+    sort: Optional[str]
+    symbols: List[UniverseSymbol]
+
+
+# ─── Flow Dealer Premium ─────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/flow/options/{symbol}/dealer-premium`` (Alpha+).
+# Full-tape Net Dealer Premium roll-up over a configurable window.
+
+
+class FlowDealerPremiumResponse(TypedDict, total=False):
+    """Net Dealer Premium from
+    ``GET /v1/flow/options/{symbol}/dealer-premium`` (Alpha+).
+    """
+
+    symbol: str
+    as_of: str
+    window_minutes: int
+    # Expiration filter echoed back, or ``None``.
+    expiry: Optional[str]
+    # ``Σ (sellVolume × vwap × 100)`` — dealer BUYS when customer hits the bid.
+    dealer_buy_premium: Optional[float]
+    # ``Σ (buyVolume × vwap × 100)`` — dealer WRITES when customer lifts the ask.
+    dealer_write_premium: Optional[float]
+    # ``dealer_buy_premium − dealer_write_premium``. Positive ⇒ dealers net long.
+    net_dealer_premium: Optional[float]
+    # ``dealer_buy_premium + dealer_write_premium`` (excludes mid prints).
+    total_premium: Optional[float]
+    trade_count: Optional[int]
+    bucket_count: Optional[int]
+
+
+# ─── Zero-DTE Flow ───────────────────────────────────────────────────────────
+#
+# Typed models for the five ``GET /v1/flow/zero-dte/*`` endpoints. The
+# snapshot reuses the full ``ZeroDteResponse`` fields plus a ``flow_direction``
+# block; the series/hedge-flow/heatmap/strike-flow endpoints are intraday
+# time-series wrappers with empty-``bars`` degraded shapes.
+
+
+class ZeroDteFlowDirection(TypedDict, total=False):
+    """Live flow-adjustment block appended to the 0DTE snapshot."""
+
+    # ``"no_flow"`` / ``"neutral"`` / ``"amplifying"`` / ``"dampening"`` /
+    # ``"regime_flip"``.
+    label: Optional[str]
+    settled_net_gex: Optional[float]
+    live_net_gex: Optional[float]
+    flow_gex_adjustment: Optional[float]
+    # ``None`` when settled GEX is 0.
+    flow_gex_pct_shift: Optional[float]
+    contracts_with_flow: Optional[int]
+    total_abs_delta_contracts: Optional[int]
+    description: Optional[str]
+
+
+class FlowZeroDteSnapshotResponse(TypedDict, total=False):
+    """Live 0DTE snapshot from
+    ``GET /v1/flow/zero-dte/snapshot/{symbol}`` (Growth+).
+
+    Same shape as ``ZeroDteResponse`` (regime, exposures, expected_move,
+    pin_risk, hedging, decay, vol_context, flow, levels, liquidity, strikes)
+    PLUS a ``flow_direction`` block. Degraded shapes set ``no_zero_dte`` or
+    ``session_closed`` to ``True``.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    as_of: str
+    market_open: Optional[bool]
+    regime: ZeroDteRegime
+    exposures: ZeroDteExposures
+    expected_move: ZeroDteExpectedMove
+    pin_risk: ZeroDtePinRisk
+    hedging: ZeroDteHedging
+    decay: ZeroDteDecay
+    vol_context: ZeroDteVolContext
+    flow: ZeroDteFlow
+    levels: ZeroDteLevels
+    liquidity: ZeroDteLiquidity
+    metadata: ZeroDteMetadata
+    strikes: List[ZeroDteStrike]
+    # Live flow-adjustment block.
+    flow_direction: ZeroDteFlowDirection
+    # ── Degraded shapes ──
+    no_zero_dte: bool
+    session_closed: bool
+    last_session: Optional[str]
+    next_zero_dte_expiry: Optional[str]
+    message: str
+
+
+class FlowZeroDteSeriesBar(TypedDict, total=False):
+    """One downsampled bar of the 0DTE series."""
+
+    # Bar timestamp (UTC, snapped to :00/:30 ET upstream).
+    t: str
+    spot: Optional[float]
+    net_gex: Optional[float]
+    net_dex: Optional[float]
+    gamma_flip: Optional[float]
+    call_wall: Optional[float]
+    put_wall: Optional[float]
+    magnet: Optional[float]
+    pin_score: Optional[int]
+    pin_probability_pct: Optional[float]
+    regime: Optional[str]
+    atm_iv: Optional[float]
+    charm_dollars_per_hour: Optional[float]
+    # $-units, cumulative since session open.
+    hedge_flow_call_cumulative: Optional[float]
+    hedge_flow_put_cumulative: Optional[float]
+    hedge_flow_cumulative_all: Optional[float]
+
+
+class FlowZeroDteSeriesResponse(TypedDict, total=False):
+    """Intraday 0DTE series from
+    ``GET /v1/flow/zero-dte/series/{symbol}`` (Growth+).
+
+    No samples in the window returns ``200`` with an empty ``bars`` array.
+    """
+
+    symbol: str
+    # Today's 0DTE expiry being sampled.
+    expiration: Optional[str]
+    as_of: str
+    # Echoes the requested bar (``30s`` / ``1m`` / ``5m`` / ``15m``).
+    bar_size: Optional[str]
+    bars: List[FlowZeroDteSeriesBar]
+
+
+class FlowZeroDteHedgeFlowBar(TypedDict, total=False):
+    """One bar of the 0DTE hedge-flow series."""
+
+    t: str
+    # Per-bar signed delta-dollars in this bucket.
+    bar: Optional[float]
+    # Running sum since session open (for the requested ``side``).
+    cumulative: Optional[float]
+
+
+class FlowZeroDteHedgeFlowResponse(TypedDict, total=False):
+    """0DTE dealer hedge-flow from
+    ``GET /v1/flow/zero-dte/hedge-flow/{symbol}`` (Growth+).
+    """
+
+    symbol: str
+    expiration: Optional[str]
+    as_of: str
+    # Echoes the requested side (``all`` / ``calls`` / ``puts``).
+    side: Optional[str]
+    bar_size: Optional[str]
+    bars: List[FlowZeroDteHedgeFlowBar]
+
+
+class FlowZeroDteHeatmapBar(TypedDict, total=False):
+    """One bar of the 0DTE heatmap; ``values`` is index-aligned to
+    ``strikes_grid``.
+    """
+
+    t: str
+    spot: Optional[float]
+    # ``values[i]`` is the metric for ``strikes_grid[i]``.
+    values: List[float]
+
+
+class FlowZeroDteHeatmapResponse(TypedDict, total=False):
+    """Per-strike 0DTE heatmap from
+    ``GET /v1/flow/zero-dte/heatmap/{symbol}`` (Alpha+).
+
+    No samples returns ``200`` with empty ``strikes_grid`` and ``bars``.
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    expiration: Optional[str]
+    # Echoes the requested metric (``gex``/``dex``/``vex``/``chex``/``oi``/
+    # ``signed_flow``).
+    metric: Optional[str]
+    # Echoes the requested mode (``raw`` / ``delta``).
+    mode: Optional[str]
+    bar_size: Optional[str]
+    as_of: str
+    tier_used: Optional[str]
+    strikes_grid: List[float]
+    bars: List[FlowZeroDteHeatmapBar]
+    # Reserved for sampler-gap intervals; not yet populated.
+    gap_intervals: List[Any]
+
+
+class FlowZeroDteStrikeFlowBar(TypedDict, total=False):
+    """One bar of per-strike signed aggressor flow (arrays index-aligned to
+    ``strikes_grid``).
+    """
+
+    t: str
+    spot: Optional[float]
+    # Per strike, per-bar increments (not cumulative).
+    signed_delta_dollars: List[float]
+    signed_gamma_dollars: List[float]
+    contracts: List[int]
+
+
+class FlowZeroDteStrikeFlowResponse(TypedDict, total=False):
+    """Per-strike 0DTE signed flow from
+    ``GET /v1/flow/zero-dte/strike-flow/{symbol}`` (Alpha+).
+    """
+
+    symbol: str
+    underlying_price: Optional[float]
+    expiration: Optional[str]
+    bar_size: Optional[str]
+    as_of: str
+    tier_used: Optional[str]
+    strikes_grid: List[float]
+    bars: List[FlowZeroDteStrikeFlowBar]
+    gap_intervals: List[Any]
+
+
+# ─── Flow Stock Bars ─────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/flow/stocks/{symbol}/bars`` (Alpha+).
+# Multi-resolution OHLCV+flow bars, oldest-first, camelCase wire keys.
+
+
+class FlowStockBar(TypedDict, total=False):
+    """One OHLCV+flow bar (camelCase wire keys, oldest-first)."""
+
+    # Bar start (UTC).
+    ts: str
+    # ``True`` once the bar is final; right-edge bar is typically ``False``.
+    closed: bool
+    open: float
+    high: float
+    low: float
+    close: float
+    vwap: float
+    buyVolume: int
+    sellVolume: int
+    midVolume: int
+    netVolume: int
+    tradeCount: int
+    biggestTrade: int
+
+
+class FlowStockBarsResponse(TypedDict, total=False):
+    """Multi-resolution stock bars from
+    ``GET /v1/flow/stocks/{symbol}/bars`` (Alpha+).
+
+    Bars are oldest-first (contrast ``/history``, newest-first).
+    """
+
+    symbol: str
+    # Echo of the requested resolution.
+    resolution: str
+    minutes: int
+    count: int
+    # Oldest 1-second bucket in the ring (UTC), or ``None`` when no history.
+    dataStartUtc: Optional[str]
+    bars: List[FlowStockBar]
+
+
+# ─── VRP History ─────────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/vrp/{symbol}/history`` (Alpha+). Daily VRP time
+# series for charting and backtesting.
+
+
+class VrpHistoryRow(TypedDict, total=False):
+    """One daily VRP snapshot row."""
+
+    # Snapshot date (``"yyyy-MM-dd"``).
+    date: Optional[str]
+    # Close price.
+    spot: Optional[float]
+    atm_iv: Optional[float]
+    rv_5d: Optional[float]
+    rv_10d: Optional[float]
+    rv_20d: Optional[float]
+    rv_30d: Optional[float]
+    # VRP spread (``atm_iv − rv_20d``).
+    vrp_20d: Optional[float]
+    # ATM straddle price ($).
+    straddle: Optional[float]
+    # 1-day expected move ($).
+    expected_move_1d: Optional[float]
+
+
+class VrpHistoryResponse(TypedDict, total=False):
+    """Daily VRP time series from ``GET /v1/vrp/{symbol}/history`` (Alpha+)."""
+
+    symbol: str
+    # Requested lookback.
+    days: Optional[int]
+    data_points: Optional[int]
+    history: List[VrpHistoryRow]
+
+
+# ─── Screener Fields ─────────────────────────────────────────────────────────
+#
+# Typed model for ``GET /v1/screener/fields`` (any authenticated tier).
+
+
+class ScreenerField(TypedDict, total=False):
+    """One queryable screener field with its value type."""
+
+    name: Optional[str]
+    # Value type used by the filter/sort engine (e.g. ``"number"``,
+    # ``"string"``).
+    type: Optional[str]
+
+
+class ScreenerFieldsResponse(TypedDict, total=False):
+    """Queryable screener fields from ``GET /v1/screener/fields``.
+
+    Fields are returned sorted by ``name``.
+    """
+
+    fields: List[ScreenerField]
+    count: Optional[int]

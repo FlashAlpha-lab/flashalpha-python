@@ -22,8 +22,23 @@ if TYPE_CHECKING:
         AdvVolatilityResponse,
         ChexResponse,
         DexResponse,
+        DispersionResponse,
+        EarningsCalendarResponse,
+        EarningsDealerPositioningResponse,
+        EarningsExpectedMoveResponse,
+        EarningsHistoryResponse,
+        EarningsIvCrushResponse,
+        EarningsScreenerResponse,
+        EarningsStrategiesResponse,
+        EarningsVrpResponse,
+        ExpectedMoveResponse,
+        ExposureBasketResponse,
         ExposureLevelsResponse,
+        ExposureOiDiffResponse,
+        ExposureSheetResponse,
         ExposureSummaryResponse,
+        ExposureTermStructureResponse,
+        FlowDealerPremiumResponse,
         FlowDealerRiskResponse,
         FlowDexResponse,
         FlowGexResponse,
@@ -44,12 +59,19 @@ if TYPE_CHECKING:
         FlowStockCumulativeResponse,
         FlowStockHistoryResponse,
         FlowStockLeaderboardResponse,
+        FlowStockBarsResponse,
         FlowStockOutliersResponse,
         FlowStockRecentResponse,
         FlowStockSummaryResponse,
         FlowSummaryResponse,
+        FlowZeroDteHedgeFlowResponse,
+        FlowZeroDteHeatmapResponse,
+        FlowZeroDteSeriesResponse,
+        FlowZeroDteSnapshotResponse,
+        FlowZeroDteStrikeFlowResponse,
         GexResponse,
         HealthResponse,
+        LiquidityResponse,
         MaxPainResponse,
         NarrativeResponse,
         OptionQuoteResponse,
@@ -57,14 +79,26 @@ if TYPE_CHECKING:
         PricingGreeksResponse,
         PricingIvResponse,
         PricingKellyResponse,
+        RealizedVolatilityResponse,
+        ScreenerFieldsResponse,
         ScreenerResponse,
+        SkewTermResponse,
+        SpotVolCorrelationResponse,
         StockQuoteResponse,
         StockSummaryResponse,
+        StrategyDecisionResponse,
+        StructureGreeksResponse,
+        StructurePnlResponse,
         SurfaceResponse,
+        SurfaceSviResponse,
         SymbolsResponse,
         TickersResponse,
+        UniverseResponse,
         VexResponse,
+        VixStateResponse,
+        VolatilityForecastResponse,
         VolatilityResponse,
+        VrpHistoryResponse,
         VrpResponse,
         ZeroDteResponse,
     )
@@ -177,6 +211,11 @@ class FlashAlpha:
         """Volatility surface grid (public, no auth required)."""
         return self._get(f"/v1/surface/{_seg(symbol)}")
 
+    def surface_svi(self, symbol: str) -> SurfaceSviResponse:
+        """Live SVI-fitted vol surface — calibrated (a, b, rho, m, sigma) per
+        expiry slice with ATM total variance and ATM IV. Requires Alpha+."""
+        return self._get(f"/v1/surface/svi/{_seg(symbol)}")
+
     def stock_summary(self, symbol: str) -> StockSummaryResponse:
         """Comprehensive stock summary (price, vol, exposure, macro)."""
         return self._get(f"/v1/stock/{_seg(symbol)}/summary")
@@ -256,17 +295,125 @@ class FlashAlpha:
         """Verbal narrative analysis of exposure. Requires Growth+."""
         return self._get(f"/v1/exposure/narrative/{_seg(symbol)}")
 
-    def zero_dte(self, symbol: str, *, strike_range: float | None = None) -> ZeroDteResponse:
+    def zero_dte(
+        self,
+        symbol: str,
+        *,
+        strike_range: float | None = None,
+        expiry: str | None = None,
+    ) -> ZeroDteResponse:
         """Real-time 0DTE analytics: regime, expected move, pin risk, hedging, decay. Requires Growth+.
 
         Returns a ``ZeroDteResponse`` (a ``TypedDict`` — runtime-equivalent to
         ``dict``). Existing ``result["field"]`` access continues to work; new
         callers get autocomplete and type-checking on the documented fields.
+
+        ``expiry`` (``"YYYY-MM-DD"``) targets a specific same-day-style expiry
+        (1DTE / 2DTE / any expiry) via the same 0DTE selector; omit for today's
+        same-day expiry. ``strike_range`` (0.001–0.10) bounds the per-strike
+        array only — aggregates always use the full chain.
         """
         params: dict[str, Any] = {}
         if strike_range is not None:
             params["strike_range"] = strike_range
+        if expiry:
+            params["expiry"] = expiry
         return self._get(f"/v1/exposure/zero-dte/{_seg(symbol)}", params or None)
+
+    def exposure_sheet(
+        self, symbol: str, *, expiration: str | None = None, min_oi: int | None = None
+    ) -> ExposureSheetResponse:
+        """Unified per-strike GEX/DEX/VEX/CHEX/DAG rowset + chain totals,
+        Line-in-the-Sand strike, gamma peaks, and OPEX flags. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if expiration:
+            params["expiration"] = expiration
+        if min_oi is not None:
+            params["min_oi"] = min_oi
+        return self._get(f"/v1/exposure/sheet/{_seg(symbol)}", params or None)
+
+    def exposure_term_structure(self, symbol: str) -> ExposureTermStructureResponse:
+        """Per-greek exposure aggregated by DTE bucket and rolled up per expiry.
+        Requires Growth+."""
+        return self._get(f"/v1/exposure/term-structure/{_seg(symbol)}")
+
+    def exposure_basket(
+        self, symbols: str | list[str], *, weights: str | list[float] | None = None
+    ) -> ExposureBasketResponse:
+        """Weighted cross-symbol aggregate of GEX/DEX/VEX/CHEX over up to 50
+        symbols. Pass ``symbols`` as a comma string or list; equal-weighted when
+        ``weights`` is omitted. Requires Growth+."""
+        if isinstance(symbols, (list, tuple)):
+            symbols = ",".join(str(s) for s in symbols)
+        params: dict[str, Any] = {"symbols": symbols}
+        if weights is not None:
+            if isinstance(weights, (list, tuple)):
+                weights = ",".join(str(w) for w in weights)
+            params["weights"] = weights
+        return self._get("/v1/exposure/basket", params)
+
+    def exposure_oi_diff(self, symbol: str, *, top_n: int | None = None) -> ExposureOiDiffResponse:
+        """Day-over-day open-interest deltas — per-contract changes, top-N by
+        absolute magnitude, and call/put aggregate totals. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if top_n is not None:
+            params["topN"] = top_n
+        return self._get(f"/v1/exposure/oi-diff/{_seg(symbol)}", params or None)
+
+    # ── Volatility / Liquidity (additional) ─────────────────────────
+
+    def liquidity(self, symbol: str) -> LiquidityResponse:
+        """Per-expiry execution score, ATM/OI-weighted spreads, ATM OI depth,
+        and chain-level liquidity roll-up. Requires Growth+."""
+        return self._get(f"/v1/liquidity/{_seg(symbol)}")
+
+    def skew_term(self, symbol: str) -> SkewTermResponse:
+        """Per-expiry 25-delta skew and risk-reversal term structure. Requires Growth+."""
+        return self._get(f"/v1/volatility/skew-term/{_seg(symbol)}")
+
+    def spot_vol_correlation(self, symbol: str) -> SpotVolCorrelationResponse:
+        """Daily Pearson correlation between spot returns and ATM-IV changes over
+        20d/60d windows. Requires Growth+."""
+        return self._get(f"/v1/volatility/spot-vol-correlation/{_seg(symbol)}")
+
+    def dispersion(
+        self,
+        *,
+        index: str,
+        symbols: str | list[str],
+        weights: str | list[float] | None = None,
+        horizon_days: int | None = None,
+    ) -> DispersionResponse:
+        """Implied-vs-realized correlation between an ``index`` and a basket of
+        ``symbols`` (dispersion / vol-arb). Returns the correlation premium and
+        per-constituent contribution to basket vol. Requires Alpha+."""
+        if isinstance(symbols, (list, tuple)):
+            symbols = ",".join(str(s) for s in symbols)
+        params: dict[str, Any] = {"index": index, "symbols": symbols}
+        if weights is not None:
+            if isinstance(weights, (list, tuple)):
+                weights = ",".join(str(w) for w in weights)
+            params["weights"] = weights
+        if horizon_days is not None:
+            params["horizon_days"] = horizon_days
+        return self._get("/v1/dispersion", params)
+
+    # ── Macro / Universe ────────────────────────────────────────────
+
+    def vix_state(self) -> VixStateResponse:
+        """Over/under-vixing regime label — spot VIX vs. SPX 20-day realized vol.
+        Requires Growth+."""
+        return self._get("/v1/macro/vix-state")
+
+    def universe(self, *, sort: str | None = None, limit: int | None = None) -> UniverseResponse:
+        """Curated tier-1 / tier-2 symbol directory (the pre-warmed screener
+        universe). Public — no auth required."""
+        params: dict[str, Any] = {}
+        if sort:
+            params["sort"] = sort
+        if limit is not None:
+            params["limit"] = limit
+        return self._get("/v1/universe", params or None)
 
     # ── Flow (live, simulation-aware) — requires the Alpha plan ──────
     #
@@ -425,6 +572,16 @@ class FlashAlpha:
             params["minutes"] = minutes
         return self._get(f"/v1/flow/stocks/{_seg(symbol)}/cumulative", params or None)
 
+    def flow_stock_bars(
+        self, symbol: str, *, resolution: str, minutes: int | None = None
+    ) -> FlowStockBarsResponse:
+        """Multi-resolution OHLCV+flow bars from the live trade tape, oldest-first.
+        ``resolution`` (required) ∈ {1s,1m,5m,15m,30m,1h,4h}. Requires Alpha+."""
+        params: dict[str, Any] = {"resolution": resolution}
+        if minutes is not None:
+            params["minutes"] = minutes
+        return self._get(f"/v1/flow/stocks/{_seg(symbol)}/bars", params)
+
     def flow_options_leaderboard(
         self, *, n: int | None = None, window_minutes: int | None = None
     ) -> FlowOptionLeaderboardResponse:
@@ -540,6 +697,95 @@ class FlashAlpha:
             params["expiry"] = expiry
         return self._get(f"/v1/flow/signals/{_seg(symbol)}/summary", params or None)
 
+    def flow_dealer_premium(
+        self,
+        symbol: str,
+        *,
+        window_minutes: int | None = None,
+        expiry: str | None = None,
+    ) -> FlowDealerPremiumResponse:
+        """Full-tape Net Dealer Premium roll-up over a window (VWAP-weighted per
+        minute bucket). Requires Alpha+."""
+        params: dict[str, Any] = {}
+        if window_minutes is not None:
+            params["windowMinutes"] = window_minutes
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/flow/options/{_seg(symbol)}/dealer-premium", params or None)
+
+    # ── Zero-DTE Flow (intraday, simulation-aware) ──────────────────
+
+    def flow_zero_dte_snapshot(self, symbol: str) -> FlowZeroDteSnapshotResponse:
+        """Live 0DTE shape (same as ``zero_dte`` plus a ``flow_direction`` block)
+        computed on effective intraday OI. Requires Growth+."""
+        return self._get(f"/v1/flow/zero-dte/snapshot/{_seg(symbol)}")
+
+    def flow_zero_dte_series(
+        self, symbol: str, *, bar: str | None = None, minutes: int | None = None
+    ) -> FlowZeroDteSeriesResponse:
+        """Intraday time series of today's 0DTE headline metrics + cumulative
+        dealer hedge-flow. ``bar`` ∈ {30s,1m,5m,15m}. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if bar:
+            params["bar"] = bar
+        if minutes is not None:
+            params["minutes"] = minutes
+        return self._get(f"/v1/flow/zero-dte/series/{_seg(symbol)}", params or None)
+
+    def flow_zero_dte_hedge_flow(
+        self,
+        symbol: str,
+        *,
+        side: str | None = None,
+        bar: str | None = None,
+        minutes: int | None = None,
+    ) -> FlowZeroDteHedgeFlowResponse:
+        """Estimated dealer hedge-flow time series for today's 0DTE chain.
+        ``side`` ∈ {all,calls,puts}; ``bar`` ∈ {30s,1m,5m,15m}. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if side:
+            params["side"] = side
+        if bar:
+            params["bar"] = bar
+        if minutes is not None:
+            params["minutes"] = minutes
+        return self._get(f"/v1/flow/zero-dte/hedge-flow/{_seg(symbol)}", params or None)
+
+    def flow_zero_dte_heatmap(
+        self,
+        symbol: str,
+        *,
+        metric: str | None = None,
+        mode: str | None = None,
+        bar: str | None = None,
+        minutes: int | None = None,
+    ) -> FlowZeroDteHeatmapResponse:
+        """Per-strike intraday 0DTE heatmap. ``metric`` ∈
+        {gex,dex,vex,chex,oi,signed_flow}; ``mode`` ∈ {raw,delta};
+        ``bar`` only ``1m``. Requires Alpha+."""
+        params: dict[str, Any] = {}
+        if metric:
+            params["metric"] = metric
+        if mode:
+            params["mode"] = mode
+        if bar:
+            params["bar"] = bar
+        if minutes is not None:
+            params["minutes"] = minutes
+        return self._get(f"/v1/flow/zero-dte/heatmap/{_seg(symbol)}", params or None)
+
+    def flow_zero_dte_strike_flow(
+        self, symbol: str, *, bar: str | None = None, minutes: int | None = None
+    ) -> FlowZeroDteStrikeFlowResponse:
+        """Per-strike signed aggressor flow over today's 0DTE session (signed
+        delta-$, gamma-$, contract count per bar). ``bar`` only ``1m``. Requires Alpha+."""
+        params: dict[str, Any] = {}
+        if bar:
+            params["bar"] = bar
+        if minutes is not None:
+            params["minutes"] = minutes
+        return self._get(f"/v1/flow/zero-dte/strike-flow/{_seg(symbol)}", params or None)
+
     # ── Pricing & Sizing ────────────────────────────────────────────
 
     def greeks(
@@ -619,6 +865,31 @@ class FlashAlpha:
         """Advanced volatility analytics: SVI parameters, variance surface, arbitrage detection, greeks surfaces, variance swap. Requires Alpha+."""
         return self._get(f"/v1/adv_volatility/{_seg(symbol)}")
 
+    def expected_move(self, symbol: str, *, expiry: str | None = None) -> ExpectedMoveResponse:
+        """Straddle-implied expected move per expiry (from ATM IV). Pass
+        ``expiry`` to restrict to a single cycle. Requires Basic+."""
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        return self._get(f"/v1/expected-move/{_seg(symbol)}", params or None)
+
+    def realized_volatility(self, symbol: str) -> RealizedVolatilityResponse:
+        """Range-based realized (historical) vol estimators (close-to-close,
+        Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang) over 10/20/30-day
+        windows. Requires Alpha+."""
+        return self._get(f"/v1/volatility/realized/{_seg(symbol)}")
+
+    def volatility_forecast(
+        self, symbol: str, *, dist: str | None = None
+    ) -> VolatilityForecastResponse:
+        """Conditional vol forecasts (EWMA λ=0.94, HAR-RV, GARCH(1,1) MLE). Pass
+        ``dist`` (``student_t`` default, or ``gaussian``) to set the GARCH error
+        distribution. Requires Alpha+."""
+        params: dict[str, Any] = {}
+        if dist:
+            params["dist"] = dist
+        return self._get(f"/v1/volatility/forecast/{_seg(symbol)}", params or None)
+
     # ── Reference Data ──────────────────────────────────────────────
 
     def tickers(self) -> TickersResponse:
@@ -635,7 +906,7 @@ class FlashAlpha:
 
     # ── VRP (Variance Risk Premium) ─────────────────────────────────
 
-    def vrp(self, symbol: str) -> VrpResponse:
+    def vrp(self, symbol: str, *, date: str | None = None) -> VrpResponse:
         """Variance risk premium analytics — the implied-vs-realized vol
         spread, conditioned on dealer gamma and vanna regime, with
         strategy scores for harvesting.
@@ -656,9 +927,21 @@ class FlashAlpha:
         - ``response["net_harvest_score"]``,
           ``response["dealer_flow_risk"]`` — top-level composite scores
 
+        Pass ``date="YYYY-MM-DD"`` to return the persisted VRP snapshot for that
+        date instead of the live dashboard (``404`` if no snapshot exists).
+
         Requires Alpha+.
         """
-        return self._get(f"/v1/vrp/{_seg(symbol)}")
+        params = {"date": date} if date else None
+        return self._get(f"/v1/vrp/{_seg(symbol)}", params)
+
+    def vrp_history(self, symbol: str, *, days: int | None = None) -> VrpHistoryResponse:
+        """Daily VRP time series for charting/backtesting (days 1-365,
+        default 30). Requires Alpha+."""
+        params: dict[str, Any] = {}
+        if days is not None:
+            params["days"] = days
+        return self._get(f"/v1/vrp/{_seg(symbol)}/history", params or None)
 
     # ── Max Pain ────────────────────────────────────────────────────
 
@@ -756,6 +1039,234 @@ class FlashAlpha:
         if offset is not None:
             body["offset"] = offset
         return self._post("/v1/screener", body)
+
+    def screener_fields(self) -> ScreenerFieldsResponse:
+        """List every screener-referenceable field with its value type.
+        Requires an API key (any tier)."""
+        return self._get("/v1/screener/fields")
+
+    # ── Strategy Signals (uniform decision envelope) ────────────────
+
+    def _strategy(self, kind: str, symbol: str, **params: Any) -> StrategyDecisionResponse:
+        """Shared dispatcher for /v1/strategies/{kind}/{symbol}. Drops None params."""
+        query = {k: v for k, v in params.items() if v is not None}
+        return self._get(f"/v1/strategies/{kind}/{_seg(symbol)}", query or None)
+
+    def strategy_flow_anomaly(self, symbol: str, *, expiry: str | None = None) -> StrategyDecisionResponse:
+        """Scores directional options-flow imbalance (call vs put). Requires Growth+."""
+        return self._strategy("flow-anomaly", symbol, expiry=expiry)
+
+    def strategy_expiry_positioning(
+        self,
+        symbol: str,
+        *,
+        expiry: str | None = None,
+        min_open_interest: int | None = None,
+        wing_width: float | None = None,
+    ) -> StrategyDecisionResponse:
+        """Scores OPEX pin risk for a single expiry, proposes an iron fly. Requires Basic+."""
+        return self._strategy(
+            "expiry-positioning",
+            symbol,
+            expiry=expiry,
+            minOpenInterest=min_open_interest,
+            wingWidth=wing_width,
+        )
+
+    def strategy_zero_dte(
+        self,
+        symbol: str,
+        *,
+        expiry: str | None = None,
+        min_open_interest: int | None = None,
+        wing_width: float | None = None,
+    ) -> StrategyDecisionResponse:
+        """Same-day 0DTE range-compression read + iron fly. Requires Growth+ and 0DTE access."""
+        return self._strategy(
+            "zero-dte",
+            symbol,
+            expiry=expiry,
+            minOpenInterest=min_open_interest,
+            wingWidth=wing_width,
+        )
+
+    def strategy_dealer_regime(self, symbol: str, *, expiry: str | None = None) -> StrategyDecisionResponse:
+        """Scores the dealer gamma regime (compression vs acceleration). Requires Growth+."""
+        return self._strategy("dealer-regime", symbol, expiry=expiry)
+
+    def strategy_vol_carry(
+        self,
+        symbol: str,
+        *,
+        expiry: str | None = None,
+        min_open_interest: int | None = None,
+        target_short_delta: float | None = None,
+        max_width: float | None = None,
+        min_credit: float | None = None,
+    ) -> StrategyDecisionResponse:
+        """Volatility risk-premium carry score + short-vol structures. Requires Alpha+."""
+        return self._strategy(
+            "vol-carry",
+            symbol,
+            expiry=expiry,
+            minOpenInterest=min_open_interest,
+            targetShortDelta=target_short_delta,
+            maxWidth=max_width,
+            minCredit=min_credit,
+        )
+
+    def strategy_yield_enhancement(
+        self,
+        symbol: str,
+        *,
+        expiry: str | None = None,
+        target_delta: float | None = None,
+        min_open_interest: int | None = None,
+        structure: str | None = None,
+        exclude_earnings_before_expiry: bool | None = None,
+    ) -> StrategyDecisionResponse:
+        """Income overlay (covered call / cash-secured put) selection. Requires Growth+."""
+        return self._strategy(
+            "yield-enhancement",
+            symbol,
+            expiry=expiry,
+            targetDelta=target_delta,
+            minOpenInterest=min_open_interest,
+            structure=structure,
+            excludeEarningsBeforeExpiry=exclude_earnings_before_expiry,
+        )
+
+    def strategy_surface_anomaly(self, symbol: str, *, expiry: str | None = None) -> StrategyDecisionResponse:
+        """Scores rich/cheap wings vs the calibrated SVI fit. Requires Alpha+."""
+        return self._strategy("surface-anomaly", symbol, expiry=expiry)
+
+    def strategy_skew(self, symbol: str, *, expiry: str | None = None) -> StrategyDecisionResponse:
+        """Scores skew richness and proposes the matching trade. Requires Growth+."""
+        return self._strategy("skew", symbol, expiry=expiry)
+
+    def strategy_term_structure(self, symbol: str) -> StrategyDecisionResponse:
+        """Scores IV term-structure slope (contango/backwardation). Requires Growth+."""
+        return self._strategy("term-structure", symbol)
+
+    def strategy_tail_pricing(self, symbol: str, *, expiry: str | None = None) -> StrategyDecisionResponse:
+        """Scores tail (deep-wing) pricing richness. Requires Growth+."""
+        return self._strategy("tail-pricing", symbol, expiry=expiry)
+
+    # ── Earnings Analytics ──────────────────────────────────────────
+
+    def earnings_calendar(
+        self,
+        *,
+        days: int | None = None,
+        symbols: str | list[str] | None = None,
+        importance: int | None = None,
+    ) -> EarningsCalendarResponse:
+        """Upcoming earnings calendar over a forward window. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if days is not None:
+            params["days"] = days
+        if symbols is not None:
+            if isinstance(symbols, (list, tuple)):
+                symbols = ",".join(str(s) for s in symbols)
+            params["symbols"] = symbols
+        if importance is not None:
+            params["importance"] = importance
+        return self._get("/v1/earnings/calendar", params or None)
+
+    def earnings_expected_move(self, symbol: str) -> EarningsExpectedMoveResponse:
+        """Earnings-implied move decomposition (jump vs diffusion) for the next
+        event. Requires Growth+."""
+        return self._get(f"/v1/earnings/expected-move/{_seg(symbol)}")
+
+    def earnings_history(self, symbol: str, *, limit: int | None = None) -> EarningsHistoryResponse:
+        """Past earnings events with EPS/revenue surprises, implied-vs-actual
+        moves, and realized IV crush. Requires Growth+."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._get(f"/v1/earnings/history/{_seg(symbol)}", params or None)
+
+    def earnings_iv_crush(self, symbol: str) -> EarningsIvCrushResponse:
+        """Expected IV crush for the next event + the historical crush
+        distribution. Requires Growth+."""
+        return self._get(f"/v1/earnings/iv-crush/{_seg(symbol)}")
+
+    def earnings_vrp(self, symbol: str) -> EarningsVrpResponse:
+        """Earnings VRP — event-implied move vs realized actual-move history with
+        a richness assessment. Requires Alpha+."""
+        return self._get(f"/v1/earnings/vrp/{_seg(symbol)}")
+
+    def earnings_dealer_positioning(self, symbol: str) -> EarningsDealerPositioningResponse:
+        """Dealer exposure scoped to the earnings event (walls, GEX buckets, charm
+        acceleration, top strikes). Requires Alpha+."""
+        return self._get(f"/v1/earnings/dealer-positioning/{_seg(symbol)}")
+
+    def earnings_strategies(self, symbol: str) -> EarningsStrategiesResponse:
+        """Strategy-suitability scores for the upcoming earnings event. Requires Alpha+."""
+        return self._get(f"/v1/earnings/strategies/{_seg(symbol)}")
+
+    def earnings_screener(
+        self,
+        *,
+        sort: str | None = None,
+        limit: int | None = None,
+        days: int | None = None,
+        min_importance: int | None = None,
+    ) -> EarningsScreenerResponse:
+        """Cross-sectional screener over upcoming earnings (VRP richness, cheapest
+        move, highest crush, importance). Requires Alpha+."""
+        params: dict[str, Any] = {}
+        if sort:
+            params["sort"] = sort
+        if limit is not None:
+            params["limit"] = limit
+        if days is not None:
+            params["days"] = days
+        if min_importance is not None:
+            params["min_importance"] = min_importance
+        return self._get("/v1/earnings/screener", params or None)
+
+    # ── Structures (pure-math, POST) ────────────────────────────────
+
+    def structure_pnl(
+        self,
+        legs: list[dict[str, Any]],
+        *,
+        min_underlying: float | None = None,
+        max_underlying: float | None = None,
+        points: int | None = None,
+    ) -> StructurePnlResponse:
+        """At-expiry P&L curve, breakevens, and max profit/loss for a multi-leg
+        structure. Each leg: action, type, strike, premium, quantity. Requires Basic+."""
+        body: dict[str, Any] = {"legs": legs}
+        if min_underlying is not None:
+            body["minUnderlying"] = min_underlying
+        if max_underlying is not None:
+            body["maxUnderlying"] = max_underlying
+        if points is not None:
+            body["points"] = points
+        return self._post("/v1/structures/pnl", body)
+
+    def structure_greeks(
+        self,
+        legs: list[dict[str, Any]],
+        *,
+        spot: float,
+        today: str | None = None,
+        rate: float | None = None,
+        dividend_yield: float | None = None,
+    ) -> StructureGreeksResponse:
+        """Aggregate Black-Scholes greeks across a multi-leg position. Each leg
+        carries its own expiry + impliedVol (calendars/diagonals aggregate
+        correctly). Requires Basic+."""
+        body: dict[str, Any] = {"legs": legs, "spot": spot}
+        if today:
+            body["today"] = today
+        if rate is not None:
+            body["rate"] = rate
+        if dividend_yield is not None:
+            body["dividendYield"] = dividend_yield
+        return self._post("/v1/structures/greeks", body)
 
     # ── Account & System ────────────────────────────────────────────
 

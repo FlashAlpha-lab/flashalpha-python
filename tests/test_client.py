@@ -690,6 +690,200 @@ def test_screener_tier_restricted_403(fa):
     assert exc.value.required_plan == "Growth"
 
 
+# ── New endpoint families (1.1.0) ───────────────────────────────────
+
+
+@responses.activate
+def test_surface_svi(fa):
+    payload = {"symbol": "SPY", "slices": [{"expiry": "2026-07-17", "a": 0.0045}]}
+    responses.get(f"{BASE}/v1/surface/svi/SPY", json=payload)
+    result = fa.surface_svi("SPY")
+    assert "/v1/surface/svi/SPY" in responses.calls[0].request.url
+    assert result["symbol"] == "SPY"
+
+
+@responses.activate
+def test_dispersion(fa):
+    payload = {"index": "SPX", "implied_correlation": 0.412, "correlation_premium": 0.027}
+    responses.get(f"{BASE}/v1/dispersion", json=payload)
+    result = fa.dispersion(index="SPX", symbols=["AAPL", "MSFT", "NVDA"], weights=[0.5, 0.3, 0.2], horizon_days=20)
+    url = responses.calls[0].request.url
+    assert "index=SPX" in url
+    assert "symbols=AAPL%2CMSFT%2CNVDA" in url
+    assert "weights=0.5%2C0.3%2C0.2" in url
+    assert "horizon_days=20" in url
+    assert result["implied_correlation"] == 0.412
+
+
+@responses.activate
+def test_universe(fa):
+    payload = {"symbols": [{"symbol": "SPY", "tier": 1}], "count": 1}
+    responses.get(f"{BASE}/v1/universe", json=payload)
+    result = fa.universe(sort="symbol", limit=20)
+    url = responses.calls[0].request.url
+    assert "/v1/universe" in url
+    assert "sort=symbol" in url
+    assert "limit=20" in url
+    assert result["count"] == 1
+
+
+@responses.activate
+def test_expected_move(fa):
+    payload = {"symbol": "SPY", "expected_moves": [{"expiry": "2026-06-20", "move_pct": 1.2}]}
+    responses.get(f"{BASE}/v1/expected-move/SPY", json=payload)
+    result = fa.expected_move("SPY", expiry="2026-06-20")
+    assert "/v1/expected-move/SPY" in responses.calls[0].request.url
+    assert "expiry=2026-06-20" in responses.calls[0].request.url
+    assert result["symbol"] == "SPY"
+
+
+@responses.activate
+def test_realized_volatility(fa):
+    payload = {
+        "symbol": "AAPL",
+        "underlying_price": 201.50,
+        "estimators": {"yang_zhang": {"rv10": 17.0, "rv20": 19.7, "rv30": 20.3}},
+    }
+    responses.get(f"{BASE}/v1/volatility/realized/AAPL", json=payload)
+    result = fa.realized_volatility("AAPL")
+    assert "/v1/volatility/realized/AAPL" in responses.calls[0].request.url
+    assert result["estimators"]["yang_zhang"]["rv20"] == 19.7
+
+
+@responses.activate
+def test_volatility_forecast(fa):
+    payload = {
+        "symbol": "AAPL",
+        "ewma": {"lambda": 0.94, "vol_annualized": 19.6, "next_day_forecast": 19.6},
+        "garch": {"model": "garch_1_1", "distribution": "student_t", "converged": True},
+    }
+    responses.get(f"{BASE}/v1/volatility/forecast/AAPL", json=payload)
+    result = fa.volatility_forecast("AAPL", dist="student_t")
+    assert "/v1/volatility/forecast/AAPL" in responses.calls[0].request.url
+    assert "dist=student_t" in responses.calls[0].request.url
+    assert result["garch"]["model"] == "garch_1_1"
+
+
+@responses.activate
+def test_vrp_history(fa):
+    payload = {"symbol": "SPY", "days": 30, "history": []}
+    responses.get(f"{BASE}/v1/vrp/SPY/history", json=payload)
+    result = fa.vrp_history("SPY", days=30)
+    assert "/v1/vrp/SPY/history" in responses.calls[0].request.url
+    assert "days=30" in responses.calls[0].request.url
+    assert result["days"] == 30
+
+
+@responses.activate
+def test_flow_stock_bars(fa):
+    payload = {"symbol": "SPY", "resolution": "5m", "bars": []}
+    responses.get(f"{BASE}/v1/flow/stocks/SPY/bars", json=payload)
+    result = fa.flow_stock_bars("SPY", resolution="5m", minutes=120)
+    url = responses.calls[0].request.url
+    assert "/v1/flow/stocks/SPY/bars" in url
+    assert "resolution=5m" in url
+    assert "minutes=120" in url
+    assert result["resolution"] == "5m"
+
+
+@responses.activate
+def test_strategy_flow_anomaly(fa):
+    payload = {"strategy": "flow_anomaly", "symbol": "SPY", "decision": "candidate", "score": 72}
+    responses.get(f"{BASE}/v1/strategies/flow-anomaly/SPY", json=payload)
+    result = fa.strategy_flow_anomaly("SPY", expiry="2026-06-19")
+    url = responses.calls[0].request.url
+    assert "/v1/strategies/flow-anomaly/SPY" in url
+    assert "expiry=2026-06-19" in url
+    assert result["decision"] == "candidate"
+
+
+@responses.activate
+def test_strategy_vol_carry_params(fa):
+    responses.get(f"{BASE}/v1/strategies/vol-carry/SPY", json={"strategy": "vol_carry", "score": 60})
+    fa.strategy_vol_carry("SPY", target_short_delta=0.20, max_width=10, min_credit=0.15, min_open_interest=250)
+    url = responses.calls[0].request.url
+    assert "targetShortDelta=0.2" in url
+    assert "maxWidth=10" in url
+    assert "minCredit=0.15" in url
+    assert "minOpenInterest=250" in url
+
+
+@responses.activate
+def test_strategy_term_structure_no_params(fa):
+    responses.get(f"{BASE}/v1/strategies/term-structure/SPY", json={"strategy": "term_structure", "score": 50})
+    fa.strategy_term_structure("SPY")
+    assert responses.calls[0].request.url == f"{BASE}/v1/strategies/term-structure/SPY"
+
+
+@responses.activate
+def test_earnings_calendar(fa):
+    payload = {"events": [{"symbol": "AAPL", "earnings_date": "2026-06-09"}], "count": 1}
+    responses.get(f"{BASE}/v1/earnings/calendar", json=payload)
+    result = fa.earnings_calendar(days=14, symbols=["AAPL", "MSFT"], importance=3)
+    url = responses.calls[0].request.url
+    assert "/v1/earnings/calendar" in url
+    assert "days=14" in url
+    assert "symbols=AAPL%2CMSFT" in url
+    assert "importance=3" in url
+    assert result["count"] == 1
+
+
+@responses.activate
+def test_earnings_screener(fa):
+    responses.get(f"{BASE}/v1/earnings/screener", json={"events": [], "count": 0})
+    fa.earnings_screener(sort="vrp_richest", limit=20, days=14, min_importance=3)
+    url = responses.calls[0].request.url
+    assert "sort=vrp_richest" in url
+    assert "min_importance=3" in url
+
+
+@responses.activate
+def test_structure_pnl_post_body(fa):
+    payload = {"breakevens": [102.1], "max_profit": 7.9, "max_loss": -2.1, "pnl_curve": []}
+    responses.post(f"{BASE}/v1/structures/pnl", json=payload)
+    legs = [
+        {"action": "buy", "type": "call", "strike": 100, "premium": 3.20, "quantity": 1},
+        {"action": "sell", "type": "call", "strike": 110, "premium": 1.10, "quantity": 1},
+    ]
+    result = fa.structure_pnl(legs, min_underlying=80, max_underlying=130, points=81)
+    req = responses.calls[0].request
+    assert req.method == "POST"
+    assert req.url == f"{BASE}/v1/structures/pnl"
+    body = _json.loads(req.body)
+    assert body["legs"] == legs
+    assert body["minUnderlying"] == 80
+    assert body["maxUnderlying"] == 130
+    assert body["points"] == 81
+    assert result["max_profit"] == 7.9
+
+
+@responses.activate
+def test_structure_greeks_post_body(fa):
+    responses.post(f"{BASE}/v1/structures/greeks", json={"spot": 102.5, "position_greeks": {}})
+    legs = [{"action": "buy", "type": "call", "strike": 100, "expiry": "2026-07-17", "impliedVol": 0.28, "quantity": 1}]
+    fa.structure_greeks(legs, spot=102.5, today="2026-06-05", rate=0.045, dividend_yield=0.013)
+    body = _json.loads(responses.calls[0].request.body)
+    assert body["legs"] == legs
+    assert body["spot"] == 102.5
+    assert body["today"] == "2026-06-05"
+    assert body["rate"] == 0.045
+    assert body["dividendYield"] == 0.013
+
+
+@responses.activate
+def test_zero_dte_with_expiry(fa):
+    responses.get(f"{BASE}/v1/exposure/zero-dte/SPY", json={"symbol": "SPY", "strikes": []})
+    fa.zero_dte("SPY", expiry="2026-06-09")
+    assert "expiry=2026-06-09" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_vrp_with_date(fa):
+    responses.get(f"{BASE}/v1/vrp/SPY", json={"symbol": "SPY"})
+    fa.vrp("SPY", date="2026-06-05")
+    assert "date=2026-06-05" in responses.calls[0].request.url
+
+
 # ── Client config ──────────────────────────────────────────────────
 
 

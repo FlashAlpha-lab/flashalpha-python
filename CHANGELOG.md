@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.0 - 2026-06-08
+
+### Added
+- **Strategy Signals** — 10 decision-support endpoints returning a uniform
+  `StrategyDecisionResponse` envelope (score, decision band, regime, ranked
+  tradeable structures, metrics, risk flags): `strategy_flow_anomaly`,
+  `strategy_expiry_positioning`, `strategy_zero_dte`, `strategy_dealer_regime`,
+  `strategy_vol_carry`, `strategy_yield_enhancement`, `strategy_surface_anomaly`,
+  `strategy_skew`, `strategy_term_structure`, `strategy_tail_pricing`.
+- **Earnings Analytics** — `earnings_calendar`, `earnings_expected_move`,
+  `earnings_history`, `earnings_iv_crush`, `earnings_vrp`,
+  `earnings_dealer_positioning`, `earnings_strategies`, `earnings_screener`
+  (event-implied move decomposition, IV crush distribution, earnings VRP
+  richness, dealer positioning into the event, suitability scores).
+- **Structures** (pure-math, POST) — `structure_pnl` (at-expiry P&L curve,
+  breakevens, max profit/loss) and `structure_greeks` (aggregate Black-Scholes
+  greeks across multi-leg positions, per-leg expiry + IV).
+- **Zero-DTE Flow** — intraday, simulation-aware: `flow_zero_dte_snapshot`,
+  `flow_zero_dte_series`, `flow_zero_dte_hedge_flow`, `flow_zero_dte_heatmap`,
+  `flow_zero_dte_strike_flow`, plus `flow_dealer_premium` (full-tape Net Dealer
+  Premium) and `flow_stock_bars` (multi-resolution OHLCV+flow bars).
+- **Exposure (additional)** — `exposure_sheet` (unified per-strike
+  GEX/DEX/VEX/CHEX/DAG + Line-in-the-Sand + gamma peaks + OPEX flags),
+  `exposure_term_structure`, `exposure_basket` (weighted cross-symbol aggregate),
+  `exposure_oi_diff` (day-over-day OI deltas).
+- **Volatility / vol-arb** — `surface_svi` (live SVI params per slice),
+  `liquidity`, `skew_term`, `spot_vol_correlation`, `dispersion`
+  (implied-vs-realized correlation / dispersion trading), `expected_move`,
+  `vrp_history`.
+- **Macro / reference** — `vix_state` (over/under-vixing regime),
+  `universe` (curated tier-1/tier-2 directory), `screener_fields`.
+- Response `TypedDict`s for every new endpoint family, all exported from the
+  package root (`StrategyDecisionResponse`, the `Earnings*`, `Structure*`,
+  `FlowZeroDte*`, `ExposureSheet*`/`ExposureBasket*`/`ExposureOiDiff*`,
+  `SurfaceSviResponse`, `DispersionResponse`, `VixStateResponse`,
+  `UniverseResponse`, `ExpectedMoveResponse`, `VrpHistoryResponse`, etc.).
+
+### Changed
+- `zero_dte(symbol, ...)` gained an optional `expiry="YYYY-MM-DD"` param to
+  target a specific same-day-style expiry (1DTE / 2DTE / any expiry).
+- `vrp(symbol, ...)` gained an optional `date="YYYY-MM-DD"` param to return the
+  persisted VRP snapshot for that date instead of the live dashboard.
+
 ## 1.0.1 - 2026-05-21
 
 ### Added
