@@ -545,6 +545,100 @@ def test_adv_volatility(fa):
         pytest.skip("adv_volatility requires Alpha+ plan")
 
 
+def test_realized_volatility(fa):
+    """Live ``GET /v1/volatility/realized/{symbol}`` (Alpha+).
+
+    Every field declared on ``RealizedVolatilityResponse`` and the nested
+    estimator blocks must be present. Each ``rvN`` is ``Optional[float]`` —
+    null is contractually valid when the window has too few observations —
+    so presence is required but null is tolerated.
+    """
+    from flashalpha import (
+        RealizedVolatilityEstimator,
+        RealizedVolatilityEstimators,
+        RealizedVolatilityResponse,
+    )
+
+    try:
+        result = fa.realized_volatility("SPY")
+    except TierRestrictedError as exc:
+        pytest.skip(f"realized_volatility requires Alpha+: {exc}")
+
+    for key in RealizedVolatilityResponse.__annotations__:
+        assert key in result, f"realized.{key} missing from response"
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+
+    estimators = result["estimators"]
+    assert isinstance(estimators, dict)
+    for key in RealizedVolatilityEstimators.__annotations__:
+        assert key in estimators, f"realized.estimators.{key} missing"
+        block = estimators[key]
+        assert isinstance(block, dict), f"realized.estimators.{key} not an object"
+        for win in RealizedVolatilityEstimator.__annotations__:
+            assert win in block, f"realized.estimators.{key}.{win} missing"
+            assert block[win] is None or isinstance(block[win], (int, float)), (
+                f"realized.estimators.{key}.{win} bad type"
+            )
+
+
+def test_volatility_forecast(fa):
+    """Live ``GET /v1/volatility/forecast/{symbol}`` (Alpha+).
+
+    Every field on ``VolatilityForecastResponse`` and the EWMA / HAR-RV /
+    GARCH blocks must be present. Forecast leaves are ``Optional`` (GARCH may
+    not converge), so presence is required but null is tolerated.
+    """
+    from flashalpha import (
+        VolatilityForecastEwma,
+        VolatilityForecastGarch,
+        VolatilityForecastHar,
+        VolatilityForecastResponse,
+    )
+
+    try:
+        result = fa.volatility_forecast("SPY")
+    except TierRestrictedError as exc:
+        pytest.skip(f"volatility_forecast requires Alpha+: {exc}")
+
+    for key in VolatilityForecastResponse.__annotations__:
+        assert key in result, f"forecast.{key} missing from response"
+    assert result["symbol"] == "SPY"
+    assert isinstance(result["as_of"], str) and result["as_of"]
+
+    ewma = result["ewma"]
+    assert isinstance(ewma, dict)
+    for key in VolatilityForecastEwma.__annotations__:
+        assert key in ewma, f"forecast.ewma.{key} missing"
+
+    har = result["har_rv"]
+    assert isinstance(har, dict)
+    for key in VolatilityForecastHar.__annotations__:
+        assert key in har, f"forecast.har_rv.{key} missing"
+
+    garch = result["garch"]
+    assert isinstance(garch, dict)
+    for key in VolatilityForecastGarch.__annotations__:
+        assert key in garch, f"forecast.garch.{key} missing"
+
+
+def test_volatility_forecast_gaussian(fa):
+    """The ``dist=gaussian`` query param is accepted and the GARCH block
+    reflects the requested distribution when the fit converges."""
+    try:
+        result = fa.volatility_forecast("AAPL", dist="gaussian")
+    except TierRestrictedError as exc:
+        pytest.skip(f"volatility_forecast requires Alpha+: {exc}")
+
+    assert result["symbol"] == "AAPL"
+    garch = result["garch"]
+    assert isinstance(garch, dict)
+    # ``distribution`` echoes the request when the model fit succeeds; tolerate
+    # null on a non-converged fit.
+    dist = garch.get("distribution")
+    assert dist is None or dist == "gaussian"
+
+
 # ── Reference Data ──────────────────────────────────────────────────
 
 
