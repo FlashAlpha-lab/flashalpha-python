@@ -209,9 +209,9 @@ summary = fa.stock_summary("SPY")                           # Comprehensive summ
 surface = fa.surface("SPY")                                  # Vol surface (public)
 ```
 
-### Historical Data (ClickHouse)
+### Historical Data (QuestDB)
 
-Minute-by-minute stock and option quotes from ClickHouse — 3.5 billion rows across 141 tickers.
+Minute-by-minute stock and option quotes from QuestDB — 3.5 billion rows across 141 tickers.
 
 ```python
 hist = fa.historical_stock_quote("SPY", date="2026-03-05", time="10:30")
@@ -319,6 +319,7 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.flow_zero_dte_hedge_flow(symbol)` | Dealer hedge-flow time series (0DTE) | Growth+ |
 | `fa.flow_zero_dte_heatmap(symbol)` | Per-strike 0DTE intraday heatmap | Alpha+ |
 | `fa.flow_zero_dte_strike_flow(symbol)` | Per-strike signed aggressor 0DTE flow | Alpha+ |
+| `fa.flow_zero_dte_leaderboard()` | Cross-symbol 0DTE leaderboard | Alpha+ |
 | `fa.strategy_flow_anomaly(symbol)` | Strategy signal: directional flow imbalance | Growth+ |
 | `fa.strategy_expiry_positioning(symbol)` | Strategy signal: OPEX pin / iron fly | Basic+ |
 | `fa.strategy_zero_dte(symbol)` | Strategy signal: same-day 0DTE range compression | Growth+ (+0DTE) |

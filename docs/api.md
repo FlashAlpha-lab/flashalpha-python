@@ -3702,8 +3702,8 @@ curl -H "X-Api-Key: YOUR_API_KEY" https://lab.flashalpha.com/v1/tickers
 
 ```json
 {
-  "tickers": ["AAPL", "AMZN", "GOOGL", "META", "MSFT", "QQQ", "SPY", "TSLA"],
-  "count": 8
+  "tickers": ["AAPL", "AMZN", "GOOGL", "META", "MSFT", "NVDA", "QQQ", "SPY", "TSLA"],
+  "count": 6200
 }
 ```
 
@@ -5750,7 +5750,7 @@ All endpoints return consistent error responses.
 {
   "status": "ERROR",
   "error": "Quota exceeded",
-  "message": "You have exceeded your daily API quota of 10 requests on the Free plan. Please upgrade to Basic for a higher limit.",
+  "message": "You have exceeded your daily API quota of 5 requests on the Free plan. Please upgrade to Basic for a higher limit.",
   "current_plan": "Free",
   "limit": 10,
   "upgrade_to": "Basic",

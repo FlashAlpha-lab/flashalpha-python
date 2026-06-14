@@ -4957,6 +4957,32 @@ class FlowZeroDteStrikeFlowResponse(TypedDict, total=False):
     gap_intervals: List[Any]
 
 
+class FlowZeroDteLeaderboardEntry(TypedDict, total=False):
+    """One ranked symbol in the cross-symbol 0DTE leaderboard."""
+
+    rank: int
+    symbol: str
+    # Value of the requested ``metric`` for this symbol.
+    value: float
+
+
+class FlowZeroDteLeaderboardResponse(TypedDict, total=False):
+    """Cross-symbol 0DTE leaderboard from
+    ``GET /v1/flow/zero-dte/leaderboard`` (Alpha+).
+
+    Ranks the curated universe by the requested ``metric``
+    (``heat`` / ``pin_risk`` / ``abs_flow`` / ``charm_intensity``).
+    """
+
+    # Echoes the requested metric.
+    metric: str
+    # Echoes the requested number of entries.
+    n: int
+    as_of: str
+    market_open: bool
+    entries: List[FlowZeroDteLeaderboardEntry]
+
+
 # ─── Flow Stock Bars ─────────────────────────────────────────────────────────
 #
 # Typed model for ``GET /v1/flow/stocks/{symbol}/bars`` (Alpha+).

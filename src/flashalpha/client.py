@@ -66,6 +66,7 @@ if TYPE_CHECKING:
         FlowSummaryResponse,
         FlowZeroDteHedgeFlowResponse,
         FlowZeroDteHeatmapResponse,
+        FlowZeroDteLeaderboardResponse,
         FlowZeroDteSeriesResponse,
         FlowZeroDteSnapshotResponse,
         FlowZeroDteStrikeFlowResponse,
@@ -223,7 +224,7 @@ class FlashAlpha:
     # ── Historical ──────────────────────────────────────────────────
 
     def historical_stock_quote(self, ticker: str, *, date: str, time: str | None = None) -> dict:
-        """Historical stock quotes (minute-by-minute from ClickHouse)."""
+        """Historical stock quotes (minute-by-minute from QuestDB)."""
         params: dict[str, Any] = {"date": date}
         if time:
             params["time"] = time
@@ -239,7 +240,7 @@ class FlashAlpha:
         strike: float | None = None,
         type: str | None = None,
     ) -> dict:
-        """Historical option quotes (minute-by-minute from ClickHouse)."""
+        """Historical option quotes (minute-by-minute from QuestDB)."""
         params: dict[str, Any] = {"date": date}
         if time:
             params["time"] = time
@@ -715,10 +716,14 @@ class FlashAlpha:
 
     # ── Zero-DTE Flow (intraday, simulation-aware) ──────────────────
 
-    def flow_zero_dte_snapshot(self, symbol: str) -> FlowZeroDteSnapshotResponse:
+    def flow_zero_dte_snapshot(self, symbol: str, *, expiry: str | None = None) -> FlowZeroDteSnapshotResponse:
         """Live 0DTE shape (same as ``zero_dte`` plus a ``flow_direction`` block)
-        computed on effective intraday OI. Requires Growth+."""
-        return self._get(f"/v1/flow/zero-dte/snapshot/{_seg(symbol)}")
+        computed on effective intraday OI. ``expiry`` (``YYYY-MM-DD``) pins a
+        specific 0DTE expiration. Requires Growth+."""
+        return self._get(
+            f"/v1/flow/zero-dte/snapshot/{_seg(symbol)}",
+            params={"expiry": expiry} if expiry else None,
+        )
 
     def flow_zero_dte_series(
         self, symbol: str, *, bar: str | None = None, minutes: int | None = None
@@ -785,6 +790,18 @@ class FlashAlpha:
         if minutes is not None:
             params["minutes"] = minutes
         return self._get(f"/v1/flow/zero-dte/strike-flow/{_seg(symbol)}", params or None)
+
+    def flow_zero_dte_leaderboard(
+        self, *, metric: str | None = None, n: int | None = None
+    ) -> FlowZeroDteLeaderboardResponse:
+        """Cross-symbol 0DTE leaderboard. ``metric`` ∈
+        {heat,pin_risk,abs_flow,charm_intensity}; ``n`` 1-100. Requires Alpha+."""
+        params: dict[str, Any] = {}
+        if metric:
+            params["metric"] = metric
+        if n is not None:
+            params["n"] = n
+        return self._get("/v1/flow/zero-dte/leaderboard", params or None)
 
     # ── Pricing & Sizing ────────────────────────────────────────────
 

@@ -221,6 +221,50 @@ def test_zero_dte_with_strike_range(fa):
     assert "strike_range=0.05" in responses.calls[0].request.url
 
 
+# ── Zero-DTE Flow ───────────────────────────────────────────────────
+
+
+@responses.activate
+def test_flow_zero_dte_snapshot(fa):
+    payload = {"symbol": "SPY", "flow_direction": {"bias": "long_gamma"}}
+    responses.get(f"{BASE}/v1/flow/zero-dte/snapshot/SPY", json=payload)
+    result = fa.flow_zero_dte_snapshot("SPY")
+    assert result["flow_direction"]["bias"] == "long_gamma"
+
+
+@responses.activate
+def test_flow_zero_dte_snapshot_with_expiry(fa):
+    responses.get(f"{BASE}/v1/flow/zero-dte/snapshot/SPY", json={"symbol": "SPY"})
+    fa.flow_zero_dte_snapshot("SPY", expiry="2026-06-09")
+    assert "expiry=2026-06-09" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_flow_zero_dte_leaderboard(fa):
+    payload = {
+        "metric": "heat",
+        "n": 2,
+        "as_of": "2026-06-14T15:00:00Z",
+        "market_open": True,
+        "entries": [
+            {"rank": 1, "symbol": "SPY", "value": 9.4},
+            {"rank": 2, "symbol": "QQQ", "value": 7.1},
+        ],
+    }
+    responses.get(f"{BASE}/v1/flow/zero-dte/leaderboard", json=payload)
+    result = fa.flow_zero_dte_leaderboard()
+    assert result["entries"][0]["symbol"] == "SPY"
+
+
+@responses.activate
+def test_flow_zero_dte_leaderboard_with_params(fa):
+    responses.get(f"{BASE}/v1/flow/zero-dte/leaderboard", json={"metric": "pin_risk", "entries": []})
+    fa.flow_zero_dte_leaderboard(metric="pin_risk", n=10)
+    url = responses.calls[0].request.url
+    assert "metric=pin_risk" in url
+    assert "n=10" in url
+
+
 # ── Pricing ─────────────────────────────────────────────────────────
 
 

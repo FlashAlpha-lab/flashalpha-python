@@ -267,6 +267,8 @@ from .types import (
     FlowZeroDteHeatmapResponse,
     FlowZeroDteStrikeFlowBar,
     FlowZeroDteStrikeFlowResponse,
+    FlowZeroDteLeaderboardEntry,
+    FlowZeroDteLeaderboardResponse,
     FlowStockBar,
     FlowStockBarsResponse,
     # ── VRP History ──
@@ -545,6 +547,8 @@ __all__ = [
     "FlowZeroDteHeatmapResponse",
     "FlowZeroDteStrikeFlowBar",
     "FlowZeroDteStrikeFlowResponse",
+    "FlowZeroDteLeaderboardEntry",
+    "FlowZeroDteLeaderboardResponse",
     "FlowStockBar",
     "FlowStockBarsResponse",
     # ── VRP History ──
