@@ -259,8 +259,8 @@ except RateLimitError as e:
 
 | Plan | Daily Requests | Access |
 |------|---------------|--------|
-| **Free** | 5 | Stock quotes, GEX/DEX/VEX/CHEX by strike, levels, BSM greeks, IV, historical quotes, tickers, options meta, surface, stock summary |
-| **Basic** | 100 | Everything in Free + index symbols (SPX, VIX, RUT, etc.) |
+| **Free** | 5 | Stock quotes, single-expiry GEX (equities), key levels, BSM greeks, IV, IV surface, stock summary, historical quotes, tickers, options meta |
+| **Basic** | 100 | + DEX/VEX/CHEX by strike, max pain, ETF & index symbols (SPX, VIX, RUT, etc.) |
 | **Growth** | 2,500 | + Exposure summary, narrative, 0DTE analytics, volatility analytics, option quotes, full-chain GEX, Kelly sizing |
 | **Alpha** | Unlimited | + Advanced volatility (SVI, variance surfaces, arbitrage detection, greeks surfaces, variance swap) |
 
@@ -271,9 +271,9 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | Method | Endpoint | Plan |
 |--------|----------|------|
 | `fa.gex(symbol)` | Gamma exposure by strike | Free+ |
-| `fa.dex(symbol)` | Delta exposure by strike | Free+ |
-| `fa.vex(symbol)` | Vanna exposure by strike | Free+ |
-| `fa.chex(symbol)` | Charm exposure by strike | Free+ |
+| `fa.dex(symbol)` | Delta exposure by strike | Basic+ |
+| `fa.vex(symbol)` | Vanna exposure by strike | Basic+ |
+| `fa.chex(symbol)` | Charm exposure by strike | Basic+ |
 | `fa.exposure_levels(symbol)` | Key levels (gamma flip, walls, max pain) | Free+ |
 | `fa.exposure_summary(symbol)` | Full exposure summary with hedging | Growth+ |
 | `fa.narrative(symbol)` | AI narrative analysis | Growth+ |
@@ -287,7 +287,7 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.greeks(...)` | BSM greeks (1st, 2nd, 3rd order) | Free+ |
 | `fa.iv(...)` | Implied volatility solver | Free+ |
 | `fa.kelly(...)` | Kelly criterion sizing | Growth+ |
-| `fa.max_pain(symbol)` | Max pain analysis with dealer alignment, pain curve, pin probability | Growth+ |
+| `fa.max_pain(symbol)` | Max pain analysis with dealer alignment, pain curve, pin probability | Basic+ |
 | `fa.screener(...)` | **Live options screener** — filter/rank by GEX, VRP, IV, greeks, formulas | Growth+ |
 | `fa.volatility(symbol)` | Comprehensive volatility analytics | Growth+ |
 | `fa.adv_volatility(symbol)` | SVI, variance surface, arb detection | Alpha+ |
@@ -365,16 +365,18 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 
 MIT
 
-## What the Alpha tier unlocks
+## What the paid tiers unlock
 
-Free and entry tiers cover live exposure analytics. The **Alpha tier ($1,499/mo)**
-adds the data you cannot get anywhere else:
+The free tier covers single-expiry GEX on equities, key levels, the BSM Greeks/IV
+calculator and stock quotes. Paid tiers add:
 
-- **Aggregate vanna and charm exposure.** FlashAlpha is the only public source for
-  these dealer-positioning aggregates.
-- **Point-in-time replay since 2018.** Backtest and trade the same code, with no
-  look-ahead and no training-serving skew.
-- **SVI vol surfaces, VRP analytics, higher-order Greeks**, uncached and unlimited.
+- **DEX, VEX (vanna) and CHEX (charm) exposure, plus max pain** — from the **Basic tier**
+  ($79/mo), with ETF and index symbols.
+- **Full-chain GEX, 0DTE and flow analytics** — from the **Growth tier** ($299/mo).
+- **Point-in-time replay since 2018, SVI vol surfaces, VRP analytics, higher-order Greeks**,
+  uncached and unlimited — the **Alpha tier** ($1,499/mo). FlashAlpha is one of the only
+  public APIs publishing aggregate vanna and charm exposure across the full universe, with
+  no look-ahead and no training-serving skew.
 
 Built for quants, prop desks, and vol funds. See the full picture and get a key:
 **[flashalpha.com/for-quant-teams](https://flashalpha.com/for-quant-teams?utm_source=github&utm_medium=readme&utm_campaign=repo-flashalpha-python)**
