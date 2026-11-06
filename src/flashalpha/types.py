@@ -5564,7 +5564,8 @@ class SellWindowWindow(TypedDict, total=False):
 class SellWindowResponse(TypedDict, total=False):
     """sell-window answer from ``GET /v1/strategies/sell-window/{symbol}``.
 
-    ``spot``, ``quoted_at`` and ``legs_indicative`` are present when a window sells.
+    ``spot``, ``quoted_at`` and ``legs_indicative`` are present when a window sells
+    and an option chain could be loaded.
     When ``legs_indicative`` is true the quotes are from before that session's
     09:35 ET entry: call again at or after 09:35 ET for the strikes to trade.
     """

@@ -71,7 +71,7 @@ Call `fa.sell_window(symbol)`. It answers that question every session for SPY, Q
 - `windows` has four entries: the same-day expiry, then the expiries closest to one week, two weeks and one month out. Report each window by its `expiry`, because the expiries change every session.
 - `action` is `sell`, `skip` or `unavailable`. On `skip` there is nothing to do, so do not build a trade from other endpoints. Treat `unavailable` like a skip.
 - Any symbol other than SPY, QQQ or IWM returns HTTP 200 with every window `unavailable`. That means not covered, not an outage. Do not extend the answer to other tickers.
-- `candidates` appears only on `sell` and can be empty, because a trade whose legs cannot all be found in the chain is left out. `legs` and `mid_credit` are absent when no chain could be loaded.
+- `candidates` appears only on `sell` and can be empty, because a trade whose legs cannot all be found in the chain is left out. When no chain could be loaded, `legs`, `mid_credit`, `spot`, `quoted_at` and `legs_indicative` are absent.
 - `mid_credit` is per share. Multiply by 100 for one unit in dollars. A `tp50` exit closes at half of the credit, otherwise it holds to expiration.
 - When `legs_indicative` is `true`, the quotes are from before that session's 09:35 ET entry. Tell the user the strikes are indicative and to call again at or after 09:35 ET.
 - The answer is set from the previous session's close and stays fixed for the session. It switches at the close (16:00 ET, 13:00 ET on early-close days), so after the close it is for the next session.

@@ -78,7 +78,7 @@ A sell day (one window and one trade shown):
 | Field | Meaning |
 |---|---|
 | `symbol`, `session` | The symbol and the trading session the answer applies to (`yyyy-MM-dd`). |
-| `spot`, `quoted_at`, `legs_indicative` | Present when a window sells. `legs_indicative: true` means the quotes are from before that session's 09:35 ET entry: call again at or after 09:35 ET for the strikes to trade. |
+| `spot`, `quoted_at`, `legs_indicative` | Present when a window sells and an option chain could be loaded. `legs_indicative: true` means the quotes are from before that session's 09:35 ET entry: call again at or after 09:35 ET for the strikes to trade. |
 | `windows[]` | Always four entries: the same-day expiry, then the expiries closest to one week, two weeks and one month out. |
 | `windows[].expiry`, `days_to_expiry` | The listed expiry this window trades. Absent when no listed expiry falls in the range. |
 | `windows[].action` | `sell`, `skip` or `unavailable`. Treat `unavailable` like a skip. |

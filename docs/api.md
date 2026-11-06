@@ -4831,9 +4831,9 @@ A sell day (SPY, 2026-10-16, replayed at 09:35 ET; the first window and two of i
 | --- | --- | --- |
 | `symbol` | string | The symbol, upper case. |
 | `session` | string | `yyyy-MM-dd`. The trading session the answer applies to. |
-| `spot` | number | Underlying mid the strikes were picked against. Present when a window sells. |
-| `quoted_at` | string | UTC time of the quotes behind the strikes. Present when a window sells. |
-| `legs_indicative` | boolean | `true` when the quotes are from before that session's 09:35 ET entry: call again at or after 09:35 ET for the strikes to trade. Present when a window sells. |
+| `spot` | number | Underlying mid the strikes were picked against. Present when a window sells and an option chain could be loaded. |
+| `quoted_at` | string | UTC time of the quotes behind the strikes. Present when a window sells and an option chain could be loaded. |
+| `legs_indicative` | boolean | `true` when the quotes are from before that session's 09:35 ET entry: call again at or after 09:35 ET for the strikes to trade. Present when a window sells and an option chain could be loaded. |
 | `endpoint_version`, `data_as_of` | | The response envelope fields every response carries. |
 | `windows` | array | Always four entries, in this order: the same-day expiry, then the expiries closest to one week, two weeks and one month out. |
 | `windows[].expiry` | string | `yyyy-MM-dd`. The listed expiry this window trades: the one closest to 0, 7, 14 or 30 calendar days after the session (within 0, 4-10, 11-17 and 25-35 days). Absent when no listed expiry falls in that range. |
