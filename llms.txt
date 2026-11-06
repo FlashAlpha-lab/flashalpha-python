@@ -9,6 +9,18 @@ This is the live (current-minute) Python SDK. For point-in-time replay
 of every analytics endpoint going back to 2018, see the companion
 `flashalpha-historical` package.
 
+## sell-window: should you sell options today?
+
+`fa.sell_window(symbol)` calls `GET /v1/strategies/sell-window/{symbol}`. Answers "should you sell options today?" every session for SPY, QQQ and IWM: sell, skip or unavailable for four listed expiries, with the trades to place on a sell (strikes, quotes, exit rule). More than 5 million backtests led to this endpoint. Own response shape (`SellWindowResponse`), not the strategy decision envelope. Live answers need Basic or higher through November 2026, and Growth or higher from December 1, 2026. Backtesting any past session needs Alpha or higher.
+
+Backtest, 2018 to 2026, against selling the same trades every day: at the same trade size, max drawdown $255k vs $959k and Sharpe ratio 0.76 vs 0.61; sized to the same max drawdown, total P&L $3.55M vs $2.32M. These are two separate choices, not one result. Past results do not guarantee future returns, and this is data, not investment advice.
+
+- Reference: https://github.com/FlashAlpha-lab/flashalpha-python/blob/main/docs/sell-window.md
+- API docs: https://flashalpha.com/docs/lab-api-strategies-sell-window
+- Backtest: https://flashalpha.com/articles/sell-window-backtest-every-trade-2018-2026
+- Trading guide: https://flashalpha.com/articles/complete-guide-trading-sell-window-spy-qqq-iwm
+- When not to sell options: https://flashalpha.com/articles/when-not-to-sell-options-negative-gamma-spy-qqq-short-premium-backtest
+
 ## Data provenance
 
 Every response carries `data_as_of`: when each upstream feed last delivered to the node

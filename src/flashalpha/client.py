@@ -83,6 +83,7 @@ if TYPE_CHECKING:
         RealizedVolatilityResponse,
         ScreenerFieldsResponse,
         ScreenerResponse,
+        SellWindowResponse,
         SkewTermResponse,
         SpotVolCorrelationResponse,
         StockQuoteResponse,
@@ -1168,6 +1169,26 @@ class FlashAlpha:
     def strategy_tail_pricing(self, symbol: str, *, expiry: str | None = None) -> StrategyDecisionResponse:
         """Scores tail (deep-wing) pricing richness. Requires Growth+."""
         return self._strategy("tail-pricing", symbol, expiry=expiry)
+
+    # ── sell-window (own response shape) ────────────────────────────
+
+    def sell_window(self, symbol: str) -> SellWindowResponse:
+        """Should you sell options today? One answer per session for SPY, QQQ and IWM.
+
+    Built from more than 5 million backtests. For four listed expiries (same day,
+    then the expiries closest to one week, two weeks and one month out) each
+    window says ``sell``, ``skip`` or ``unavailable``. On a sell it lists the
+    trades to place, with strikes, quotes and the exit rule. On a skip there is
+    nothing to do. Treat ``unavailable`` like a skip.
+
+    The answer is set from the previous session's close and stays fixed for the
+    session. Any symbol other than SPY, QQQ or IWM returns every window as
+    ``unavailable``. Requires Basic+ through November 2026, Growth+ from
+    December 1, 2026. Backtest any session with ``flashalpha-historical`` (Alpha+).
+
+    Docs: https://flashalpha.com/docs/lab-api-strategies-sell-window
+    """
+        return self._get(f"/v1/strategies/sell-window/{_seg(symbol)}")
 
     # ── Earnings Analytics ──────────────────────────────────────────
 

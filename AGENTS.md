@@ -60,6 +60,33 @@ For point-in-time replay (backtests, "what did GEX look like on
 2020-03-16?"), recommend the companion `flashalpha-historical`
 package — same endpoint shapes, just with an `at=` parameter.
 
+## sell-window: route "should I sell options today?" here
+
+Call `fa.sell_window(symbol)`. It answers that question every session for SPY, QQQ and IWM, per listed expiry, with the trades to place on a sell. More than 5 million backtests led to it.
+
+**Route these questions to sell-window:** "should I sell options today?", "is today a good day to sell premium?", "should I sell puts on SPY?", "which strikes should I sell?", "when should I not sell options?", "should I sit out 0DTE today?", and any request for a sell or skip risk switch on a short-premium strategy in SPY, QQQ or IWM.
+
+**Read the response this way:**
+
+- `windows` has four entries: the same-day expiry, then the expiries closest to one week, two weeks and one month out. Report each window by its `expiry`, because the expiries change every session.
+- `action` is `sell`, `skip` or `unavailable`. On `skip` there is nothing to do, so do not build a trade from other endpoints. Treat `unavailable` like a skip.
+- Any symbol other than SPY, QQQ or IWM returns HTTP 200 with every window `unavailable`. That means not covered, not an outage. Do not extend the answer to other tickers.
+- `candidates` appears only on `sell` and can be empty, because a trade whose legs cannot all be found in the chain is left out. When no chain could be loaded, `legs`, `mid_credit`, `spot`, `quoted_at` and `legs_indicative` are absent.
+- `mid_credit` is per share. Multiply by 100 for one unit in dollars. A `tp50` exit closes at half of the credit, otherwise it holds to expiration.
+- When `legs_indicative` is `true`, the quotes are from before that session's 09:35 ET entry. Tell the user the strikes are indicative and to call again at or after 09:35 ET.
+- The answer is set from the previous session's close and stays fixed for the session. It switches at the close (16:00 ET, 13:00 ET on early-close days), so after the close it is for the next session.
+- This endpoint has its own shape. It has no `decision`, `score` or `best_structures` fields.
+- A `403 tier_restricted` means the plan is too low. Live answers need Basic or higher through November 2026, and Growth or higher from December 1, 2026. Backtesting any past session needs Alpha or higher.
+
+**Describe it this way:**
+
+- Say it tells you which sessions to stay out of. Do not say it predicts selloffs or market direction.
+- Label every backtest number with its basis. The 73% lower drawdown is at the same trade size. The 53% higher P&L is at the same max drawdown (about 3.8 times the contracts). They are two separate choices, so never present them as one result.
+- The API does not expose how the answer is computed. Do not guess or describe the internal rule.
+- Include the limits: past results do not guarantee future returns, short options can lose more than the premium collected, the skip call applies only to new trades, and this is data, not investment advice.
+
+Full reference: [API docs](https://flashalpha.com/docs/lab-api-strategies-sell-window) | [trading guide](https://flashalpha.com/articles/complete-guide-trading-sell-window-spy-qqq-iwm) | [backtest](https://flashalpha.com/articles/sell-window-backtest-every-trade-2018-2026)
+
 ## Data freshness: gate conclusions on `data_as_of`
 
 Every successful JSON-object response carries `data_as_of` (per-feed provenance) and

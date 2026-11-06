@@ -164,6 +164,7 @@ Decision-support endpoints that score one trading idea and return a unified [str
 - [`GET /v1/strategies/skew/{symbol}`](#get-v1strategiesskewsymbol) — 25-delta skew / risk-reversal signal `Growth+`
 - [`GET /v1/strategies/term-structure/{symbol}`](#get-v1strategiesterm-structuresymbol) — ATM-IV term-structure signal `Growth+`
 - [`GET /v1/strategies/tail-pricing/{symbol}`](#get-v1strategiestail-pricingsymbol) — Downside-tail richness signal `Growth+`
+- [`GET /v1/strategies/sell-window/{symbol}`](#get-v1strategiessell-windowsymbol) - Daily sell or skip per expiry with trades to place (SPY, QQQ, IWM) `Basic+ through November 2026, then Growth+`
 
 ### Earnings
 
@@ -4755,6 +4756,108 @@ Returns the [strategy decision envelope](#strategy-decision-envelope) with strat
 | 400 | `invalid_expiry` | `expiry` is present but not `yyyy-MM-dd`. |
 | 403 | `tier_restricted` | Caller is below the Growth plan. |
 | 404 | `symbol_not_found` | No market data for the symbol. |
+
+---
+
+## `GET /v1/strategies/sell-window/{symbol}`
+
+A daily answer to one question, built from more than 5 million backtests: should you sell options today? For four listed expiries (same day, and the expiries closest to one week, two weeks and one month out) it says `sell`, `skip` or `unavailable`. On a sell it also lists the trades to place, with concrete strikes from the option chain, each contract's delta and quote, the credit at mid and the exit rule. On a skip there is nothing to do.
+
+Covered symbols: `SPY`, `QQQ`, `IWM`. Any other symbol returns every window as `unavailable`.
+
+The answer is set from the previous session's close and stays fixed for the session. It switches at the close (16:00 ET, 13:00 ET on early-close days): before the close it is for the current session, after the close and on closed days it is for the next session.
+
+**Plans:** Basic or higher through November 2026, Growth or higher from December 1, 2026. Backtesting from Alpha: the historical API returns the answer for any past session with `?at=`. On it, the strikes come from the archive chain at `at`; the backtests entered at 09:35 ET, so `at=<session>T09:35:00` returns the backtest's entry strikes. From the live launch on, the action and trades match what this endpoint answered at that time. Before it they are rebuilt from the archive with the same rules. See the [backtest](https://flashalpha.com/articles/sell-window-backtest-every-trade-2018-2026) and the [trading guide](https://flashalpha.com/articles/complete-guide-trading-sell-window-spy-qqq-iwm).
+
+How strikes are picked (the backtests' contract rules): only out-of-the-money contracts with a bid above zero, a bid/ask spread of at most 20% of the mid and open interest of at least 250. Among those, the contract whose delta is closest to the trade's target and within 0.05 of it; ties go to the tighter spread, then the higher open interest. A trade whose legs cannot all be found in the chain is left out, because the backtest could not have filled it either.
+
+This endpoint does not return the [strategy decision envelope](#strategy-decision-envelope); it has its own shape, below.
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `symbol` | path | yes | - | Underlying symbol. `SPY`, `QQQ` or `IWM`. |
+
+### Example
+
+```bash
+curl "https://lab.flashalpha.com/v1/strategies/sell-window/SPY" \
+  -H "X-Api-Key: YOUR_API_KEY"
+```
+
+A skip day (SPY, 2026-11-05):
+
+```json
+{
+  "symbol": "SPY",
+  "session": "2026-11-05",
+  "windows": [
+    { "expiry": "2026-11-05", "days_to_expiry": 0, "action": "skip" },
+    { "expiry": "2026-11-12", "days_to_expiry": 7, "action": "skip" },
+    { "expiry": "2026-11-18", "days_to_expiry": 13, "action": "skip" },
+    { "expiry": "2026-12-04", "days_to_expiry": 29, "action": "skip" }
+  ]
+}
+```
+
+A sell day (SPY, 2026-10-16, replayed at 09:35 ET; the first window and two of its trades shown):
+
+```json
+{
+  "symbol": "SPY",
+  "session": "2026-10-16",
+  "spot": 772.255,
+  "quoted_at": "2026-10-16T13:35:00Z",
+  "legs_indicative": false,
+  "windows": [
+    { "expiry": "2026-10-16", "days_to_expiry": 0, "action": "sell",
+      "candidates": [
+        { "structure": "short_put", "exit": "expiry",
+          "legs": [ {"side": "sell", "quantity": 1, "type": "put", "strike": 769, "delta": -0.19, "bid": 0.39, "ask": 0.4} ],
+          "mid_credit": 0.395 },
+        { "structure": "short_strangle", "exit": "expiry",
+          "legs": [ {"side": "sell", "quantity": 1, "type": "call", "strike": 774, "delta": 0.302, "bid": 0.63, "ask": 0.64},
+                    {"side": "sell", "quantity": 1, "type": "put", "strike": 770, "delta": -0.264, "bid": 0.58, "ask": 0.59} ],
+          "mid_credit": 1.22 }
+      ] }
+  ]
+}
+```
+
+### Response fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `symbol` | string | The symbol, upper case. |
+| `session` | string | `yyyy-MM-dd`. The trading session the answer applies to. |
+| `spot` | number | Underlying mid the strikes were picked against. Present when a window sells and an option chain could be loaded. |
+| `quoted_at` | string | UTC time of the quotes behind the strikes. Present when a window sells and an option chain could be loaded. |
+| `legs_indicative` | boolean | `true` when the quotes are from before that session's 09:35 ET entry: call again at or after 09:35 ET for the strikes to trade. Present when a window sells and an option chain could be loaded. |
+| `endpoint_version`, `data_as_of` | | The response envelope fields every response carries. |
+| `windows` | array | Always four entries, in this order: the same-day expiry, then the expiries closest to one week, two weeks and one month out. |
+| `windows[].expiry` | string | `yyyy-MM-dd`. The listed expiry this window trades: the one closest to 0, 7, 14 or 30 calendar days after the session (within 0, 4-10, 11-17 and 25-35 days). Absent when no listed expiry falls in that range. |
+| `windows[].days_to_expiry` | integer | Calendar days from `session` to `expiry`. |
+| `windows[].action` | string | `sell`: a session to sell at this expiry. `skip`: stand aside, no new trade. `unavailable`: no answer (a symbol outside coverage or a missing day of data); treat it like a skip. |
+| `windows[].candidates` | array | Present only when `action` is `sell`. The trades to consider, in a fixed order. |
+| `windows[].candidates[].structure` | string | `short_put`, `short_call`, `short_strangle`, `short_straddle`, `tail_hedged_put` (short put with a far out-of-the-money put bought below it), `put_credit_spread` or `put_bwb` (put broken-wing butterfly: buy one put above, sell two, buy one further below, for a credit). |
+| `windows[].candidates[].exit` | string | `expiry`: hold to expiration. `tp50`: close once the position can be bought back for half of the credit or less, otherwise hold to expiration. |
+| `windows[].candidates[].legs` | array | The contracts of one unit of the trade. |
+| `legs[].side` | string | `sell` or `buy`. |
+| `legs[].quantity` | integer | Contracts per unit of the trade (2 for the sold body of `put_bwb`, otherwise 1). |
+| `legs[].type` | string | `call` or `put`. |
+| `legs[].strike` | number | Strike price. |
+| `legs[].delta` | number | The contract's own delta when the answer was served (negative for puts). |
+| `legs[].bid`, `legs[].ask` | number | The contract's quote when the answer was served. |
+| `windows[].candidates[].mid_credit` | number | Net credit per share at mid: sold mids minus bought mids, times quantity. Multiply by 100 for one unit in dollars. |
+
+### Errors
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 403 | `tier_restricted` | Caller is below the required plan. |
+
+The historical API version (`GET /v1/strategies/sell-window/{symbol}?at=...` on the historical host, Alpha or higher) also returns `400 invalid_at` when `at` is malformed, in the future, or a time that does not exist in ET (the daylight-saving gap).
 
 ---
 

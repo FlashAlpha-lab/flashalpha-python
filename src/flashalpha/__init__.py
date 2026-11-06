@@ -185,6 +185,10 @@ from .types import (
     StrategyStructure,
     StrategyRiskFlag,
     StrategyDataQuality,
+    SellWindowCandidate,
+    SellWindowLeg,
+    SellWindowResponse,
+    SellWindowWindow,
     StrategyDecisionResponse,
     # ── Earnings ──
     EarningsCalendarEvent,
@@ -277,7 +281,7 @@ from .types import (
     VrpHistoryResponse,
 )
 
-__version__ = "1.2.3"
+__version__ = "1.4.0"
 __all__ = [
     "DataAsOf",
     "FlashAlpha",
@@ -466,6 +470,10 @@ __all__ = [
     "StrategyStructure",
     "StrategyRiskFlag",
     "StrategyDataQuality",
+    "SellWindowCandidate",
+    "SellWindowLeg",
+    "SellWindowResponse",
+    "SellWindowWindow",
     "StrategyDecisionResponse",
     # ── Earnings ──
     "EarningsCalendarEvent",
