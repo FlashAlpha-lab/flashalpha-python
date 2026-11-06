@@ -944,3 +944,52 @@ def test_custom_base_url():
 def test_custom_timeout():
     fa = FlashAlpha("key", timeout=10)
     assert fa.timeout == 10
+
+# ── sell-window ─────────────────────────────────────────────────────
+
+
+SELL_DAY = {
+    "symbol": "SPY",
+    "session": "2026-10-16",
+    "spot": 772.255,
+    "quoted_at": "2026-10-16T13:35:00Z",
+    "legs_indicative": False,
+    "windows": [
+        {
+            "expiry": "2026-10-16",
+            "days_to_expiry": 0,
+            "action": "sell",
+            "candidates": [
+                {
+                    "structure": "short_put",
+                    "exit": "expiry",
+                    "legs": [{"side": "sell", "quantity": 1, "type": "put", "strike": 769, "delta": -0.19, "bid": 0.39, "ask": 0.4}],
+                    "mid_credit": 0.395,
+                }
+            ],
+        },
+        {"expiry": "2026-10-23", "days_to_expiry": 7, "action": "skip"},
+        {"expiry": "2026-10-30", "days_to_expiry": 14, "action": "skip"},
+        {"action": "unavailable"},
+    ],
+}
+
+
+@responses.activate
+def test_sell_window_calls_route_and_returns_the_answer(fa):
+    responses.get(f"{BASE}/v1/strategies/sell-window/SPY", json=SELL_DAY)
+    answer = fa.sell_window("SPY")
+    assert answer["windows"][0]["candidates"][0]["legs"][0]["strike"] == 769
+    assert "expiry" not in answer["windows"][3]
+    assert "?" not in responses.calls[0].request.url
+
+
+@responses.activate
+def test_sell_window_below_required_plan_raises_tier_restricted(fa):
+    responses.get(
+        f"{BASE}/v1/strategies/sell-window/SPY",
+        json={"error": "tier_restricted", "message": "Requires Basic plan.", "current_plan": "Free", "required_plan": "Basic"},
+        status=403,
+    )
+    with pytest.raises(TierRestrictedError):
+        fa.sell_window("SPY")

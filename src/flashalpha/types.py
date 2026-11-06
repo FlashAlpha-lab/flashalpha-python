@@ -5509,3 +5509,74 @@ class ScreenerFieldsResponse(TypedDict, total=False):
     # Response envelope, present on every successful response.
     endpoint_version: str
     data_as_of: DataAsOf
+
+# ── sell-window ─────────────────────────────────────────────────────
+#
+# Own response shape: not the StrategyDecisionResponse envelope.
+
+
+class SellWindowLeg(TypedDict, total=False):
+    """One contract of a sell-window trade."""
+
+    side: Literal["sell", "buy"]
+    # Contracts per unit of the trade: 2 for the sold body of put_bwb, otherwise 1.
+    quantity: int
+    type: Literal["call", "put"]
+    strike: float
+    # The contract's own delta when the answer was served (negative for puts).
+    delta: float
+    bid: float
+    ask: float
+
+
+class SellWindowCandidate(TypedDict, total=False):
+    """One trade to consider on a sell window."""
+
+    structure: Literal[
+        "short_put",
+        "short_call",
+        "short_strangle",
+        "short_straddle",
+        "tail_hedged_put",
+        "put_credit_spread",
+        "put_bwb",
+    ]
+    # expiry: hold to expiration. tp50: close at half of the credit, else hold.
+    exit: Literal["expiry", "tp50"]
+    # Absent when no option chain could be loaded for the answer.
+    legs: List[SellWindowLeg]
+    # Net credit per share at mid. Multiply by 100 for one unit in dollars.
+    mid_credit: float
+
+
+class SellWindowWindow(TypedDict, total=False):
+    """One of the four windows, named by its listed expiry."""
+
+    # Absent when no listed expiry falls in the window's range.
+    expiry: str
+    days_to_expiry: int
+    action: Literal["sell", "skip", "unavailable"]
+    # Present only when action is "sell". Can be empty: a trade whose legs
+    # cannot all be found in the chain is left out.
+    candidates: List[SellWindowCandidate]
+
+
+class SellWindowResponse(TypedDict, total=False):
+    """sell-window answer from ``GET /v1/strategies/sell-window/{symbol}``.
+
+    ``spot``, ``quoted_at`` and ``legs_indicative`` are present when a window sells.
+    When ``legs_indicative`` is true the quotes are from before that session's
+    09:35 ET entry: call again at or after 09:35 ET for the strikes to trade.
+    """
+
+    symbol: str
+    # yyyy-MM-dd. The trading session the answer applies to.
+    session: str
+    spot: float
+    quoted_at: str
+    legs_indicative: bool
+    # Always four entries: same day, then about one week, two weeks, one month.
+    windows: List[SellWindowWindow]
+    # Response envelope, present on every successful response.
+    endpoint_version: str
+    data_as_of: DataAsOf
