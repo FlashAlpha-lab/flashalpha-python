@@ -334,7 +334,7 @@ hist_opt = fa.historical_option_quote(
 ```python
 tickers = fa.tickers()                # All available stock tickers
 chain = fa.options("SPY")             # Option chain metadata
-symbols = fa.symbols()                # Symbols with live cached data
+symbols = fa.symbols()                # Symbols with live data
 account = fa.account()                # Plan, usage, quota
 health = fa.health()                  # API health check (public)
 ```
