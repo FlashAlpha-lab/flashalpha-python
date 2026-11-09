@@ -334,7 +334,7 @@ hist_opt = fa.historical_option_quote(
 ```python
 tickers = fa.tickers()                # All available stock tickers
 chain = fa.options("SPY")             # Option chain metadata
-symbols = fa.symbols()                # Symbols with live cached data
+symbols = fa.symbols()                # Symbols with live data
 account = fa.account()                # Plan, usage, quota
 health = fa.health()                  # API health check (public)
 ```
@@ -495,7 +495,7 @@ calculator and stock quotes. Paid tiers add:
   ($79/mo), with ETF and index symbols.
 - **Full-chain GEX, 0DTE and flow analytics** — from the **Growth tier** ($299/mo).
 - **Point-in-time replay since 2017, SVI vol surfaces, VRP analytics, higher-order Greeks**,
-  uncached and unlimited — the **Alpha tier** ($1,499/mo). FlashAlpha is one of the only
+  unlimited — the **Alpha tier** ($1,499/mo). FlashAlpha is one of the only
   public APIs publishing aggregate vanna and charm exposure across the full universe, with
   no look-ahead and no training-serving skew.
 

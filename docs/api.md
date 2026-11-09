@@ -37,7 +37,7 @@ curl -H "X-Api-Key: YOUR_API_KEY" https://lab.flashalpha.com/v1/exposure/gex/SPY
 
 **3. Explore the response** — you'll get gamma exposure by strike with OI, volume, and day-over-day changes.
 
-That's it. Every US equity and ETF symbol is supported. Data is fetched on-demand with a 15-second cache.
+That's it. Every US equity and ETF symbol is supported. Data is fetched on-demand. Paid plans serve live data. A Free API key gets delayed data.
 
 ---
 
@@ -65,7 +65,7 @@ https://lab.flashalpha.com/v1/symbols?apiKey=YOUR_API_KEY
 - [`GET /optionquote/{ticker}`](#get-optionquoteticker) — Option quotes with greeks `Growth+`
 - [`GET /v1/surface/{symbol}`](#get-v1surfacesymbol) — Vol surface grid `Public`
 - [`GET /v1/surface/svi/{symbol}`](#get-v1surfacesvisymbol) — Live SVI parameters per expiry `Alpha+`
-- [`GET /v1/stock/{symbol}/summary`](#get-v1stocksymbolsummary) — Comprehensive stock summary `Public` (cached) / `Free+` (live)
+- [`GET /v1/stock/{symbol}/summary`](#get-v1stocksymbolsummary) — Comprehensive stock summary `Public` (previous session's snapshot) / `Free+` (live)
 
 ### Exposure Analytics
 
@@ -217,7 +217,7 @@ Every authenticated response includes rate limit headers:
 
 | Plan | Daily Requests | Access |
 |------|---------------|--------|
-| Free | 5 | Stock quotes, gamma exposure by strike (GEX, levels), BSM greeks, IV solver, tickers, options meta, symbols, surface, stock summary (cached for unauthenticated, live for authenticated) |
+| Free | 5 | Stock quotes, gamma exposure by strike (GEX, levels), BSM greeks, IV solver, tickers, options meta, symbols, surface, stock summary (previous session's snapshot for unauthenticated, live for authenticated) |
 | Basic | 250 | Everything in Free + delta/vanna/charm exposure (DEX/VEX/CHEX) + index symbols + max pain analysis |
 | Growth | 2,500 | + Exposure summary, narrative, history, 0DTE analytics, volatility analytics, option quotes, full-chain GEX (no expiry filter), Kelly sizing, **flow analytics** (`/v1/flow/levels`, `/pin-risk`, `/summary`, `/gex`, `/dex`, `/dealer-risk`) |
 | Alpha | Unlimited | + Advanced volatility (SVI, variance surfaces, arbitrage detection, greeks surfaces, var swap), VRP analytics (risk premium, z-score, percentile, directional VRP, term structure, GEX/vanna-conditioned regime, strategy suitability scores, dealer flow risk, macro context), SVI-smoothed IV on option quotes, **raw OI simulator state** (`/v1/flow/oi`), **flow bundle** (`/v1/flow/live`), **unusual-flow signal feed** (`/v1/flow/signals`), and raw option/stock flow data (`/v1/flow/options/*`, `/v1/flow/stocks/*`) |
@@ -336,9 +336,9 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
 
 ## `GET /v1/surface/{symbol}`
 
-Returns the cached volatility surface grid for a symbol. **Public endpoint — no authentication required.**
+Returns the pre-computed volatility surface grid for a symbol. **Public endpoint — no authentication required.**
 
-The surface is pre-computed from SVI fits and cached in the database. Updated periodically during market hours.
+The surface is pre-computed from SVI fits and updated periodically during market hours.
 
 ### Parameters
 
@@ -354,7 +354,7 @@ curl https://lab.flashalpha.com/v1/surface/SPY
 
 ### Response `200`
 
-Returns the cached JSON response containing the vol surface grid data.
+Returns the JSON response containing the vol surface grid data.
 
 ### Errors
 
@@ -370,7 +370,7 @@ Returns a comprehensive stock summary: price, ATM IV, historical volatility, vol
 
 **Dual access:**
 - **Authenticated** — returns live, real-time data computed on the spot
-- **Unauthenticated (no API key)** — returns the previous day's cached snapshot from the database (populated daily at market open)
+- **Unauthenticated (no API key)** — returns the previous trading session's snapshot
 
 ### Parameters
 
@@ -520,11 +520,11 @@ curl "https://lab.flashalpha.com/v1/stock/SPY/summary"
 
 | Status | Description |
 |--------|-------------|
-| `404` | No data for symbol (authenticated) or no cached snapshot (unauthenticated) |
+| `404` | No data for symbol (authenticated) or no snapshot available (unauthenticated) |
 
 ### Notes
 
-- Unauthenticated responses are cached daily at 9:31 AM ET and reflect the previous trading day's data
+- Unauthenticated responses show the previous trading session's snapshot
 - Macro fields (`vix`, `vvix`, etc.) may be `null` if the external data source is unavailable
 - `exposure` is `null` if no options/greeks data is loaded for the symbol
 - HV is computed from Yahoo Finance historical closes using annualized log-return standard deviation (√252)
@@ -1948,7 +1948,7 @@ Every simulation-aware flow analytics response uses the same per-contract OI sta
 
 ### Expiry filter
 
-Every `/v1/flow/*` endpoint accepts an optional `?expiry=YYYY-MM-DD` query parameter that filters the chain to a single expiry before running the math. Omit the parameter to aggregate across all expiries (the default). Invalid formats return `400 Bad Request` with `{"error":"invalid_expiry"}`; an expiry with no contracts in the cached chain returns `404 Not Found`.
+Every `/v1/flow/*` endpoint accepts an optional `?expiry=YYYY-MM-DD` query parameter that filters the chain to a single expiry before running the math. Omit the parameter to aggregate across all expiries (the default). Invalid formats return `400 Bad Request` with `{"error":"invalid_expiry"}`; an expiry with no contracts in the chain returns `404 Not Found`.
 
 ```bash
 curl -H "X-Api-Key: YOUR_API_KEY" \
@@ -2874,7 +2874,7 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
 
 ## Raw Flow Data
 
-These Alpha-only endpoints proxy intraday trade-flow JSON from the ingest service. Unlike the analytics endpoints above, these are pass-through responses and use `camelCase` field names. Cross-symbol scans are cached for 30 seconds.
+These Alpha-only endpoints proxy intraday trade-flow JSON from the ingest service. Unlike the analytics endpoints above, these are pass-through responses and use `camelCase` field names. Cross-symbol scans refresh about every 30 seconds.
 
 Common errors:
 
@@ -3780,7 +3780,7 @@ curl -H "X-Api-Key: YOUR_API_KEY" https://lab.flashalpha.com/v1/options/SPY
 
 ## `GET /v1/symbols`
 
-Returns the list of symbols that have been queried and have live data cached.
+Returns the list of symbols that have been queried and currently have live data.
 
 ### Example
 
@@ -3794,7 +3794,7 @@ curl -H "X-Api-Key: YOUR_API_KEY" https://lab.flashalpha.com/v1/symbols
 {
   "symbols": ["SPY", "QQQ"],
   "count": 2,
-  "note": "Any US equity or ETF symbol is supported. All data is fetched on-demand with a 15-second cache.",
+  "note": "Paid plans serve live data. Endpoint access, fields and quotas depend on your plan; upstream data age and public snapshot policies still apply.",
   "last_updated": "2026-02-28T16:30:45Z"
 }
 ```
@@ -5900,4 +5900,4 @@ All endpoints return consistent error responses.
 - Implied volatility is smoothed via **SVI** (Stochastic Volatility Inspired) parameterization
 - Dealer position is the **opposite** of net exposure (dealers are counterparty)
 - OI changes are **day-over-day** deltas (when prior-day snapshot is available)
-- Any US equity or ETF symbol is supported — data is fetched on-demand and cached for 15 seconds
+- Any US equity or ETF symbol is supported. Data is fetched on-demand, paid plans serve live data, and a Free API key gets delayed data

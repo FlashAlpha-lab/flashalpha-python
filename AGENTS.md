@@ -200,7 +200,7 @@ summary: StockSummaryResponse = client.stock_summary("SPY")
 ## Auth and tiers
 
 - API keys: https://flashalpha.com (sign up, then dashboard).
-- Free tier: `stock_summary` returns a previous-day cached snapshot
+- Free tier: `stock_summary` returns the previous trading session's snapshot
   without a key — useful for demos, docs, and LLM tool-call examples
   without burning a key.
 - Tier-restricted endpoints raise `TierRestrictedError` (HTTP 403).

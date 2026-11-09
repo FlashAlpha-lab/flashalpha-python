@@ -977,7 +977,8 @@ class MaxPainResponse(TypedDict, total=False):
 #
 # Dual-mode auth:
 #   - Authenticated (with API key): live, current-minute snapshot.
-#   - Unauthenticated: previous-day cached snapshot (free preview tier).
+#   - Unauthenticated: previous trading session's snapshot (free preview
+#     tier).
 #
 # Hedging-estimate sign convention DIFFERS from /v1/exposure/zero-dte:
 #   - On stock_summary, ``hedging_estimate.spot_*_1pct.dealer_shares`` is a
@@ -1083,7 +1084,7 @@ class StockSummaryOptionsFlow(TypedDict, total=False):
     # Total put open interest across the chain.
     total_put_oi: Optional[int]
     # Total call volume traded so far in the session (live) or for the
-    # cached day (unauthenticated).
+    # snapshot's session (unauthenticated).
     total_call_volume: Optional[int]
     # Total put volume traded so far in the session.
     total_put_volume: Optional[int]
@@ -1363,7 +1364,7 @@ class StockSummaryResponse(TypedDict, total=False):
     - **Authenticated** (with API key): live, current-minute snapshot.
       Pricing reflects the most recent quote tick; all derived numbers
       are computed against that spot.
-    - **Unauthenticated**: previous-day cached snapshot, served as a
+    - **Unauthenticated**: previous trading session's snapshot, served as a
       free preview tier — the response shape is identical but ``as_of``
       is the prior trading day's close. Useful for demos / docs / LLM
       tool-call examples without burning a key.
@@ -3584,7 +3585,8 @@ class FlowOptionLeaderboardResponse(TypedDict, total=False):
     """Cross-symbol option-flow leaderboard from
     ``GET /v1/flow/options/leaderboard``.
 
-    Top ``n`` net-dollar buyers and sellers over the window. Cached ~30s.
+    Top ``n`` net-dollar buyers and sellers over the window. Refreshes
+    about every 30s.
     Requires the Alpha plan.
     """
 
@@ -3643,7 +3645,8 @@ class FlowOutlierRow(TypedDict, total=False):
 
 class FlowOptionOutliersResponse(TypedDict, total=False):
     """Cross-symbol option-flow outliers from
-    ``GET /v1/flow/options/outliers``. Cached ~30s. Requires Alpha.
+    ``GET /v1/flow/options/outliers``. Refreshes about every 30s.
+    Requires Alpha.
     """
 
     # When the snapshot was generated (ISO-8601 UTC).
@@ -3691,7 +3694,8 @@ class FlowStockLeaderRow(TypedDict, total=False):
 
 class FlowStockLeaderboardResponse(TypedDict, total=False):
     """Cross-symbol stock-flow leaderboard from
-    ``GET /v1/flow/stocks/leaderboard``. Cached ~30s. Requires Alpha.
+    ``GET /v1/flow/stocks/leaderboard``. Refreshes about every 30s.
+    Requires Alpha.
     """
 
     # When the snapshot was generated (ISO-8601 UTC).
@@ -3712,7 +3716,8 @@ class FlowStockLeaderboardResponse(TypedDict, total=False):
 
 class FlowStockOutliersResponse(TypedDict, total=False):
     """Cross-symbol stock-flow outliers from
-    ``GET /v1/flow/stocks/outliers``. Cached ~30s. Requires Alpha.
+    ``GET /v1/flow/stocks/outliers``. Refreshes about every 30s.
+    Requires Alpha.
     """
 
     # When the snapshot was generated (ISO-8601 UTC).

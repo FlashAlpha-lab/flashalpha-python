@@ -77,7 +77,7 @@ narrative = client.exposure_narrative("SPY")
   full dealer exposure (Greeks, walls, gamma flip, max pain, hedging
   estimate, 0DTE attribution, top strikes), and macro context (VIX,
   VVIX, SKEW, SPX, MOVE, term structure, fear/greed). Dual-mode auth:
-  authenticated = live; unauthenticated = previous-day cached snapshot.
+  authenticated = live; unauthenticated = previous trading session's snapshot.
 - `GET /v1/exposure/summary/{symbol}` — net dealer Greeks
   (gamma/delta/vanna/charm), gamma flip, ±1% hedging estimate,
   verbal regime narratives, 0DTE attribution.
@@ -243,7 +243,7 @@ number; treat any other value as no level published.
 ## Tier breakdown
 
 - **Free**: dual-mode preview tier — `stock_summary` returns a
-  previous-day cached snapshot without an API key.
+  previous trading session's snapshot without an API key.
 - **Basic**: live `exposure_summary`, `exposure_levels`, `zero_dte`,
   `maxpain`, `pricing/greeks`.
 - **Alpha**: adds `vrp` and full historical replay of the above.
