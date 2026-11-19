@@ -79,6 +79,8 @@ https://lab.flashalpha.com/v1/symbols?apiKey=YOUR_API_KEY
 - [`GET /v1/exposure/zero-dte/{symbol}`](#get-v1exposurezero-dtesymbol) — Real-time 0DTE analytics `Growth+`
 - [`GET /v1/exposure/sheet/{symbol}`](#get-v1exposuresheetsymbol) — Unified per-strike sheet (GEX/DEX/VEX/CHEX/DAG + LIS + peaks) `Growth+`
 - [`GET /v1/exposure/term-structure/{symbol}`](#get-v1exposureterm-structuresymbol) — Per-greek term structure (DTE buckets + per-expiry) `Growth+`
+- [`GET /v1/exposure/expiry-impact/{symbol}`](#get-v1exposureexpiry-impactsymbol) - Gamma concentration with one expiry excluded (SPY/QQQ) `Growth+`
+- [`GET /v1/exposure/strike-dependency/{symbol}`](#get-v1exposurestrike-dependencysymbol) - One exact strike's gamma attributed to its expiries (SPY/QQQ) `Growth+`
 - [`GET /v1/exposure/basket`](#get-v1exposurebasket) — Cross-symbol basket aggregate `Growth+`
 - [`GET /v1/exposure/oi-diff/{symbol}`](#get-v1exposureoi-diffsymbol) — Day-over-day OI deltas (top changes) `Growth+`
 - [`GET /v1/maxpain/{symbol}`](#get-v1maxpainsymbol) — Max pain analysis with dealer alignment `Basic+`
@@ -1325,6 +1327,175 @@ curl -H "X-Api-Key: YOUR_API_KEY" \
 
 - Buckets that match no contracts are omitted from `by_dte_bucket` rather than emitted with zeros.
 - `pct_of_chain_gex` is `0` for every row when the chain's total `|net_gex|` is zero (safe-divide guard).
+
+---
+
+## `GET /v1/exposure/expiry-impact/{symbol}`
+
+Compares the current SPY or QQQ gamma distribution with the same captured inputs after excluding one expiry. Spot, Greeks and open interest are held fixed, so this measures how much of today's concentration depends on one maturity. It is not a forecast of post-expiry prices, dealer hedging or the next session's chain.
+
+**Requires Growth plan or higher. Supported symbols: `SPY`, `QQQ`.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | `SPY` or `QQQ`. |
+| `expiry` | query | no | nearest active eligible expiry | `yyyy-MM-dd`; must be one of `available_expiries`. |
+| `limit` | query | no | `5` | 1-20. Rows in `impact.largest_gross_reductions` and `impact.strongest_remaining_concentrations`. Totals and `strikes[]` always use the full eligible chain. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/exposure/expiry-impact/SPY?limit=5"
+```
+
+### Response `200`
+
+Abridged; values are illustrative.
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 663.42,
+  "snapshot_id": "4f1c9e…",
+  "generated_at": "2026-10-16T18:30:00Z",
+  "quote_at": "2026-10-16T18:29:58Z",
+  "greeks_oldest_at": "2026-10-16T18:29:31Z",
+  "greeks_newest_at": "2026-10-16T18:29:59Z",
+  "calculation_version": "gamma-context-v2",
+  "pricing_basis": "captured_cached_gamma_current_spot",
+  "data_status": "partial",
+  "reasons": [{ "code": "oi_vintage_unknown", "message": "The source does not carry a verified OI observation date; …" }],
+  "oi_as_of": null,
+  "oi_vintage_status": "unknown",
+  "eligible_contract_count": 8412,
+  "rejected_contract_count": 37,
+  "gex_unit": "usd_delta_notional_per_1pct_move",
+  "sign_convention": "calls_positive_puts_negative",
+  "analysis_type": "expiry_removal_sensitivity",
+  "selected_expiry": "2026-10-16",
+  "selection_source": "nearest_active",
+  "available_expiries": ["2026-10-16", "2026-10-19", "2026-10-20"],
+  "current":          { "gross_gex_usd": 9100000000, "net_gex_usd": 2300000000, "call_gex_usd": 5700000000, "put_gex_usd": -3400000000, "contract_count": 8412 },
+  "excluded_expiry":  { "gross_gex_usd": 1950000000, "net_gex_usd":  650000000, "call_gex_usd": 1300000000, "put_gex_usd":  -650000000, "contract_count": 1906 },
+  "excluding_expiry": { "gross_gex_usd": 7150000000, "net_gex_usd": 1650000000, "call_gex_usd": 4400000000, "put_gex_usd": -2750000000, "contract_count": 6506, "status": "available" },
+  "impact": {
+    "removed_gross_share_pct": 21.43,
+    "retained_gross_share_pct": 78.57,
+    "net_gex_change_usd": -650000000,
+    "net_sign_before": "positive",
+    "net_sign_after": "positive",
+    "net_sign_changed": false,
+    "largest_gross_reductions": [
+      { "strike": 665, "distance_from_spot_pct": 0.24, "current_gross_gex_usd": 610000000, "current_net_gex_usd": 140000000,
+        "excluded_gross_gex_usd": 290000000, "excluded_net_gex_usd": 90000000,
+        "remaining_gross_gex_usd": 320000000, "remaining_net_gex_usd": 50000000, "excluded_share_at_strike_pct": 47.54 }
+    ],
+    "strongest_remaining_concentrations": []
+  },
+  "strikes": [],
+  "facts": [
+    { "code": "expiry_gross_share", "text": "The selected expiry contributes 21.4% of captured gross gamma exposure.", "supporting_values": { "expiry": "2026-10-16", "gross_share_pct": 21.43, "gross_gex_usd": 1950000000 } }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `current` / `excluded_expiry` / `excluding_expiry` | Gross, net, call and put GEX (USD per 1% move) and contract counts for the whole eligible chain, the selected expiry, and the chain without it. `excluding_expiry.status` is `available`, `zero_gross_exposure` or `no_remaining_contracts`. |
+| `impact.removed_gross_share_pct` | `100 × excluded gross / current gross`. Null when current gross is zero. |
+| `impact.net_gex_change_usd` | `remaining net − current net` (minus the excluded net). |
+| `impact.net_sign_before` / `net_sign_after` / `net_sign_changed` | Sign of the modeled net total before and after exclusion. |
+| `impact.largest_gross_reductions[]` / `strongest_remaining_concentrations[]` | Top `limit` strikes by gross removed / gross remaining. |
+| `strikes[]` | Every eligible strike with current, excluded and remaining gross/net GEX. |
+| `facts[]` | Plain-language statements with their supporting values. |
+| `pricing_basis` | `captured_cached_gamma_current_spot` (SPY: captured Greeks at current spot) or `qqq_common_anchor_repriced` (QQQ: raw quotes repriced at one spot and time). |
+| `data_status` / `reasons[]` | `partial` in normal operation (open-interest vintage is unknown), `stale` when an input predates the market-session freshness cutoff, `unavailable` when no contract qualifies. Reasons carry machine codes and excluded-contract counts. |
+| `snapshot_id` | SHA-256 fingerprint of the captured inputs; identical inputs give identical IDs. |
+
+### Errors
+
+| Status | `error` | When |
+|--------|---------|------|
+| `400` | `invalid_expiry` | `expiry` is not `yyyy-MM-dd`. |
+| `400` | `invalid_limit` | `limit` is outside 1-20. |
+| `403` | `tier_restricted` | Caller is below the Growth plan. |
+| `404` | `symbol_not_found` | No underlying quote is available. |
+| `404` | `expiry_not_found` | The requested expiry has no eligible active contracts; the body lists `available_expiries`. |
+| `404` | `no_eligible_contracts` | No eligible active contract remains. |
+| `422` | `unsupported_symbol` | Symbol other than SPY or QQQ. |
+| `503` | `invalid_spot` | No finite positive underlying price. |
+
+### Notes
+
+- Contract GEX = `gamma × OI × 100 × spot² × 0.01`. Gross sums magnitudes; net applies calls positive / puts negative. The sign is a convention, not observed dealer inventory.
+- Eligible contracts use the standard root and a 100-share multiplier with valid strike, OI and gamma. An expiring contract leaves the model at 16:00 ET (`valuation_horizon_elapsed`) and is excluded from 16:15 ET (`last_trading_elapsed`); early-close expiries are excluded until their clocks are verified.
+- Historical replay: the same route on `historical.flashalpha.com` with `at=` (Alpha+). Date-only `at` uses 15:55 ET. See the [trader-context reference](https://lab.flashalpha.com/llms/trader-context.md).
+
+---
+
+## `GET /v1/exposure/strike-dependency/{symbol}`
+
+Attributes the gamma at one exact observed SPY or QQQ strike to its expiries: does the level depend on a single maturity? It reports concentration at that strike, not a support/resistance probability.
+
+**Requires Growth plan or higher. Supported symbols: `SPY`, `QQQ`.**
+
+### Parameters
+
+| Name | In | Required | Default | Description |
+|------|----|----------|---------|-------------|
+| `symbol` | path | yes | - | `SPY` or `QQQ`. |
+| `strike` | query | yes | - | Exact listed strike, positive. The request is never snapped to a nearby strike. |
+
+### Example
+
+```bash
+curl -H "X-Api-Key: YOUR_API_KEY" \
+  "https://lab.flashalpha.com/v1/exposure/strike-dependency/SPY?strike=665"
+```
+
+### Response `200`
+
+Abridged; values are illustrative. Metadata fields (`snapshot_id`, `pricing_basis`, `data_status`, `reasons`, timestamps, units) match [expiry impact](#get-v1exposureexpiry-impactsymbol).
+
+```json
+{
+  "symbol": "SPY",
+  "underlying_price": 663.42,
+  "analysis_type": "strike_attribution",
+  "strike": 665,
+  "distance_from_spot_pct": 0.24,
+  "gross_gex_usd": 610000000,
+  "net_gex_usd": 140000000,
+  "call_gex_usd": 375000000,
+  "put_gex_usd": -235000000,
+  "contract_count": 46,
+  "by_expiry": [
+    { "expiry": "2026-10-16", "valuation_cutoff_at": "2026-10-16T20:00:00Z", "last_trading_at": "2026-10-16T20:15:00Z",
+      "last_trading_status": "scheduled_regular_session", "settlement_at": null, "settlement_status": "unknown",
+      "calendar_days_to_expiry": 0, "gross_gex_usd": 290000000, "net_gex_usd": 90000000,
+      "call_gex_usd": 190000000, "put_gex_usd": -100000000, "contract_count": 2,
+      "gross_share_pct": 47.54, "share_of_strike_gross_pct": 47.54 }
+  ],
+  "dominant_expiry": "2026-10-16",
+  "dominant_expiry_share_pct": 47.54
+}
+```
+
+### Errors
+
+| Status | `error` | When |
+|--------|---------|------|
+| `400` | `invalid_strike` | `strike` is missing, not a number, or not positive. |
+| `403` | `tier_restricted` | Caller is below the Growth plan. |
+| `404` | `symbol_not_found` | No underlying quote is available. |
+| `404` | `strike_not_found` | The exact strike has no eligible active contracts; the body echoes `requested_strike`. |
+| `422` | `unsupported_symbol` | Symbol other than SPY or QQQ. |
+| `503` | `invalid_spot` | No finite positive underlying price. |
 
 ---
 

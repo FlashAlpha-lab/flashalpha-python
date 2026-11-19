@@ -238,6 +238,16 @@ from .types import (
     ExposureBasketResponse,
     ExposureOiDiffRow,
     ExposureOiDiffResponse,
+    # ── Expiry impact / strike dependency ──
+    GammaContextReason,
+    GammaContextMetadata,
+    GammaTotals,
+    GammaExpiryRow,
+    GammaStrikeImpact,
+    GammaRemovalImpact,
+    GammaContextFact,
+    ExpiryImpactResponse,
+    StrikeDependencyResponse,
     # ── Volatility / Liquidity (additional) ──
     LiquidityExpiry,
     LiquidityResponse,
@@ -281,7 +291,7 @@ from .types import (
     VrpHistoryResponse,
 )
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __all__ = [
     "DataAsOf",
     "FlashAlpha",
@@ -523,6 +533,16 @@ __all__ = [
     "ExposureBasketResponse",
     "ExposureOiDiffRow",
     "ExposureOiDiffResponse",
+    # ── Expiry impact / strike dependency ──
+    "GammaContextReason",
+    "GammaContextMetadata",
+    "GammaTotals",
+    "GammaExpiryRow",
+    "GammaStrikeImpact",
+    "GammaRemovalImpact",
+    "GammaContextFact",
+    "ExpiryImpactResponse",
+    "StrikeDependencyResponse",
     # ── Volatility / Liquidity (additional) ──
     "LiquidityExpiry",
     "LiquidityResponse",

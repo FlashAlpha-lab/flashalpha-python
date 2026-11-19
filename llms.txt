@@ -196,6 +196,8 @@ Deterministic functions of the legs you supply — no market-data lookup:
 - `exposure_term_structure` — exposure by DTE bucket and per expiry (Growth+)
 - `exposure_basket` — weighted cross-symbol exposure aggregate (Growth+)
 - `exposure_oi_diff` — day-over-day open-interest deltas, top-N (Growth+)
+- `expiry_impact` - Compares the current SPY or QQQ gamma distribution with the same captured inputs after excluding one expiry. Requires Growth or higher.
+- `strike_dependency` - Attributes the gamma at one exact observed SPY or QQQ strike to its expiries: does the level depend on a single maturity? Requires Growth or higher.
 - `liquidity` — per-expiry execution score, bid-ask spreads, OI depth (Growth+)
 - `skew_term` — 25-delta skew + risk-reversal term structure (Growth+)
 - `spot_vol_correlation` — spot-vol correlation 20d/60d (Growth+)

@@ -1,0 +1,195 @@
+{
+  "selected_expiry": "2026-11-19",
+  "selection_source": "nearest_active",
+  "available_expiries": [
+    "2026-11-19",
+    "2026-11-20",
+    "2026-11-23"
+  ],
+  "current": {
+    "gross_gex_usd": 33170572651.203655,
+    "net_gex_usd": -9404255001.966496,
+    "call_gex_usd": 11883158824.61858,
+    "put_gex_usd": -21287413826.585075,
+    "contract_count": 9891
+  },
+  "excluded_expiry": {
+    "gross_gex_usd": 1450901409.2988586,
+    "net_gex_usd": 303030991.4205142,
+    "call_gex_usd": 876966200.3596865,
+    "put_gex_usd": -573935208.9391723,
+    "contract_count": 153
+  },
+  "excluding_expiry": {
+    "gross_gex_usd": 31719671241.904793,
+    "net_gex_usd": -9707285993.387007,
+    "call_gex_usd": 11006192624.258894,
+    "put_gex_usd": -20713478617.6459,
+    "contract_count": 9738,
+    "status": "available"
+  },
+  "impact": {
+    "removed_gross_share_pct": 4.374061987278384,
+    "retained_gross_share_pct": 95.6259380127216,
+    "net_gex_change_usd": -303030991.4205142,
+    "net_sign_before": "negative",
+    "net_sign_after": "negative",
+    "net_sign_changed": false,
+    "largest_gross_reductions": [
+      {
+        "strike": 740,
+        "distance_from_spot_pct": 0.5591906344061925,
+        "current_gross_gex_usd": 1351686973.868157,
+        "current_net_gex_usd": -213217066.75922143,
+        "excluded_gross_gex_usd": 124993987.37306339,
+        "excluded_net_gex_usd": 84070482.75107288,
+        "remaining_gross_gex_usd": 1226692986.4950933,
+        "remaining_net_gex_usd": -297287549.5102943,
+        "excluded_share_at_strike_pct": 9.24725841038217
+      },
+      {
+        "strike": 738,
+        "distance_from_spot_pct": 0.28740903809698626,
+        "current_gross_gex_usd": 314022051.714182,
+        "current_net_gex_usd": 85020981.26204857,
+        "excluded_gross_gex_usd": 106119275.80876648,
+        "excluded_net_gex_usd": 90171042.71203849,
+        "remaining_gross_gex_usd": 207902775.90541556,
+        "remaining_net_gex_usd": -5150061.449989915,
+        "excluded_share_at_strike_pct": 33.79357444150279
+      }
+    ],
+    "strongest_remaining_concentrations": [
+      {
+        "strike": 750,
+        "distance_from_spot_pct": 1.918098615952224,
+        "current_gross_gex_usd": 1727117094.3350348,
+        "current_net_gex_usd": -98736386.38895285,
+        "excluded_gross_gex_usd": 29898670.993103817,
+        "excluded_net_gex_usd": -2634899.9954067934,
+        "remaining_gross_gex_usd": 1697218423.3419309,
+        "remaining_net_gex_usd": -96101486.39354599,
+        "excluded_share_at_strike_pct": 1.7311316697154941
+      },
+      {
+        "strike": 730,
+        "distance_from_spot_pct": -0.7997173471398389,
+        "current_gross_gex_usd": 1346916582.4297853,
+        "current_net_gex_usd": -999398629.0580201,
+        "excluded_gross_gex_usd": 15170651.95745034,
+        "excluded_net_gex_usd": -15170651.95745034,
+        "remaining_gross_gex_usd": 1331745930.4723349,
+        "remaining_net_gex_usd": -984227977.1005697,
+        "excluded_share_at_strike_pct": 1.126324536749193
+      }
+    ]
+  },
+  "strikes": [
+    {
+      "strike": 50,
+      "distance_from_spot_pct": -93.20546009226986,
+      "current_gross_gex_usd": 7688.633337283193,
+      "current_net_gex_usd": -7524.7463097843965,
+      "excluded_gross_gex_usd": 0,
+      "excluded_net_gex_usd": 0,
+      "remaining_gross_gex_usd": 7688.633337283193,
+      "remaining_net_gex_usd": -7524.7463097843965,
+      "excluded_share_at_strike_pct": 0
+    },
+    {
+      "strike": 55,
+      "distance_from_spot_pct": -92.52600610149683,
+      "current_gross_gex_usd": 340.1332091250256,
+      "current_net_gex_usd": -340.1332091250256,
+      "excluded_gross_gex_usd": 0,
+      "excluded_net_gex_usd": 0,
+      "remaining_gross_gex_usd": 340.1332091250256,
+      "remaining_net_gex_usd": -340.1332091250256,
+      "excluded_share_at_strike_pct": 0
+    },
+    {
+      "strike": 60,
+      "distance_from_spot_pct": -91.84655211072382,
+      "current_gross_gex_usd": 7131.603987517365,
+      "current_net_gex_usd": -7016.161448778155,
+      "excluded_gross_gex_usd": 0,
+      "excluded_net_gex_usd": 0,
+      "remaining_gross_gex_usd": 7131.603987517365,
+      "remaining_net_gex_usd": -7016.161448778155,
+      "excluded_share_at_strike_pct": 0
+    }
+  ],
+  "facts": [
+    {
+      "code": "expiry_gross_share",
+      "text": "The selected expiry contributes 4.4% of captured gross gamma exposure.",
+      "supporting_values": {
+        "expiry": "2026-11-19",
+        "gross_share_pct": 4.374061987278384,
+        "gross_gex_usd": 1450901409.2988586
+      }
+    },
+    {
+      "code": "fixed_input_comparison",
+      "text": "The comparison removes contracts while holding spot, gamma and open interest fixed; it is not a forecast of post-expiry prices.",
+      "supporting_values": {
+        "underlying_price": 735.885,
+        "remaining_contract_count": 9738
+      }
+    }
+  ],
+  "symbol": "SPY",
+  "underlying_price": 735.885,
+  "snapshot_id": "6be03e34b24a50979b50d4bd7fb9f700d4c20fe50aecbd0fc54132c60b8e0518",
+  "generated_at": "2026-11-19T08:11:09.2307609Z",
+  "quote_at": "2026-11-19T01:00:00.26Z",
+  "greeks_oldest_at": "2026-11-18T14:30:38Z",
+  "greeks_newest_at": "2026-11-18T21:15:02Z",
+  "calculation_version": "gamma-context-v2",
+  "pricing_basis": "captured_cached_gamma_current_spot",
+  "data_status": "stale",
+  "reasons": [
+    {
+      "code": "expiry_clock_unverified",
+      "message": "Excluded 600 contract(s): expiry_clock_unverified.",
+      "contract_count": 600
+    },
+    {
+      "code": "gamma_unavailable",
+      "message": "Excluded 1499 contract(s): gamma_unavailable.",
+      "contract_count": 1499
+    },
+    {
+      "code": "oi_vintage_unknown",
+      "message": "The source does not carry a verified OI observation date; zero OI is a stored value, not evidence of a completed OI refresh.",
+      "contract_count": null
+    },
+    {
+      "code": "stale_inputs",
+      "message": "At least one known input predates the shared market-session freshness cutoff.",
+      "contract_count": null
+    }
+  ],
+  "oi_as_of": null,
+  "oi_vintage_status": "unknown",
+  "eligible_contract_count": 9891,
+  "rejected_contract_count": 2099,
+  "observed_min_strike": 50,
+  "observed_max_strike": 1480,
+  "gex_unit": "usd_delta_notional_per_1pct_move",
+  "sign_convention": "calls_positive_puts_negative",
+  "analysis_type": "expiry_removal_sensitivity",
+  "endpoint_version": "2026.09.30",
+  "data_as_of": {
+    "node": "fa4",
+    "equity_feed": "2026-11-19T05:00:00.137Z",
+    "equity_options_feed": "2026-11-18T21:15:02Z",
+    "index_feed": "2026-11-19T08:06:15.503973Z",
+    "index_options_feed": "2026-11-18T22:00:00Z",
+    "futures_feed": "2026-11-19T08:11:07.125Z",
+    "futures_options_feed": "2026-11-19T08:11:07.351Z",
+    "flow_feed": "2026-11-19T03:44:00Z",
+    "oi_feed": "2026-11-18T00:00:00Z",
+    "macro_feed": "2026-11-18T21:15:01Z"
+  }
+}

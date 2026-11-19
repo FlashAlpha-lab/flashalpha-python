@@ -201,6 +201,33 @@ narrative = fa.narrative("SPY")                              # AI narrative (Gro
 print(narrative["narrative"]["outlook"])
 ```
 
+### Expiry impact and strike dependency (SPY, QQQ)
+
+Two Growth+ views of how much of the current gamma concentration rests on one expiry.
+
+- **Expiry impact** compares the current SPY or QQQ gamma distribution with the same
+  captured inputs after excluding one expiry. Spot, Greeks and open interest are held
+  fixed, so it measures how much of today's concentration depends on one maturity. It is
+  not a forecast of post-expiry prices, dealer hedging or the next session's chain.
+- **Strike dependency** attributes the gamma at one exact observed strike to its
+  expiries, and names the dominant expiry. It reports concentration at that strike, not
+  a support/resistance probability.
+
+```python
+from flashalpha import ExpiryImpactResponse, StrikeDependencyResponse
+
+impact: ExpiryImpactResponse = fa.expiry_impact("SPY", limit=5)
+print(impact["selected_expiry"], impact["impact"]["removed_gross_share_pct"])
+print(impact["impact"]["net_sign_changed"])
+
+dependency: StrikeDependencyResponse = fa.strike_dependency("SPY", strike=670)
+print(dependency["dominant_expiry"], dependency["dominant_expiry_share_pct"])
+```
+
+`data_status` is `partial` in normal operation (the open-interest vintage is unknown),
+`stale` when an input predates the market-session freshness cutoff, and `unavailable`
+when no contract qualifies. `reasons` carries machine codes.
+
 ### 0DTE Analytics
 
 Real-time zero-days-to-expiration analysis: gamma regime, expected move, pin risk scoring, dealer hedging estimates, theta decay acceleration, and per-strike breakdown.
@@ -410,6 +437,8 @@ Get your API key at **[flashalpha.com](https://flashalpha.com)**
 | `fa.exposure_term_structure(symbol)` | Exposure aggregated by DTE bucket and expiry | Growth+ |
 | `fa.exposure_basket(symbols)` | Weighted cross-symbol exposure aggregate | Growth+ |
 | `fa.exposure_oi_diff(symbol)` | Day-over-day open-interest deltas, top-N | Growth+ |
+| `fa.expiry_impact(symbol, expiry=, limit=)` | Gamma concentration with one expiry excluded (SPY/QQQ) | Growth+ |
+| `fa.strike_dependency(symbol, strike=)` | One exact strike's gamma attributed to its expiries (SPY/QQQ) | Growth+ |
 | `fa.liquidity(symbol)` | Per-expiry execution score and bid-ask spreads | Growth+ |
 | `fa.skew_term(symbol)` | 25-delta skew and risk-reversal term structure | Growth+ |
 | `fa.spot_vol_correlation(symbol)` | Spot-vol correlation (20d/60d) | Growth+ |

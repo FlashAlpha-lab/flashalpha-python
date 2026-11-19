@@ -1,0 +1,90 @@
+{
+  "error": "strike_not_found",
+  "message": "The exact requested strike has no eligible active contracts.",
+  "requested_strike": 671.3,
+  "metadata": {
+    "totals": {
+      "gross_gex_usd": 33170573190.31807,
+      "net_gex_usd": -9404262451.501978,
+      "call_gex_usd": 11883155369.408045,
+      "put_gex_usd": -21287417820.910023,
+      "contract_count": 9891
+    },
+    "by_expiry": [
+      {
+        "expiry": "2026-11-19",
+        "valuation_cutoff_at": "2026-11-19T21:00:00Z",
+        "last_trading_at": "2026-11-19T21:15:00Z",
+        "last_trading_status": "scheduled_regular_session",
+        "settlement_at": null,
+        "settlement_status": "unknown",
+        "calendar_days_to_expiry": 0,
+        "gross_share_pct": 4.374059517428572,
+        "gross_gex_usd": 1450900613.6167178,
+        "net_gex_usd": 303029813.152159,
+        "call_gex_usd": 876965213.3844384,
+        "put_gex_usd": -573935400.2322794,
+        "contract_count": 153
+      },
+      {
+        "expiry": "2026-11-20",
+        "valuation_cutoff_at": "2026-11-20T21:00:00Z",
+        "last_trading_at": "2026-11-20T21:15:00Z",
+        "last_trading_status": "scheduled_regular_session",
+        "settlement_at": null,
+        "settlement_status": "unknown",
+        "calendar_days_to_expiry": 1,
+        "gross_share_pct": 29.940588477571733,
+        "gross_gex_usd": 9931464814.56487,
+        "net_gex_usd": -5991714935.148824,
+        "call_gex_usd": 1969874939.7080238,
+        "put_gex_usd": -7961589874.856848,
+        "contract_count": 255
+      }
+    ],
+    "next_active_expiry": "2026-11-19",
+    "largest_gross_expiry": "2026-11-20",
+    "symbol": "SPY",
+    "underlying_price": 735.885,
+    "snapshot_id": "e775fb2ea2dea16f5b2b78a0081333f66d6ad50fb6590a4840ff8a9d168f9b03",
+    "generated_at": "2026-11-19T08:11:14.7298273Z",
+    "quote_at": "2026-11-19T01:00:00.26Z",
+    "greeks_oldest_at": "2026-11-18T14:30:38Z",
+    "greeks_newest_at": "2026-11-18T21:15:02Z",
+    "calculation_version": "gamma-context-v2",
+    "pricing_basis": "captured_cached_gamma_current_spot",
+    "data_status": "stale",
+    "reasons": [
+      {
+        "code": "expiry_clock_unverified",
+        "message": "Excluded 600 contract(s): expiry_clock_unverified.",
+        "contract_count": 600
+      },
+      {
+        "code": "gamma_unavailable",
+        "message": "Excluded 1499 contract(s): gamma_unavailable.",
+        "contract_count": 1499
+      },
+      {
+        "code": "oi_vintage_unknown",
+        "message": "The source does not carry a verified OI observation date; zero OI is a stored value, not evidence of a completed OI refresh.",
+        "contract_count": null
+      },
+      {
+        "code": "stale_inputs",
+        "message": "At least one known input predates the shared market-session freshness cutoff.",
+        "contract_count": null
+      }
+    ],
+    "oi_as_of": null,
+    "oi_vintage_status": "unknown",
+    "eligible_contract_count": 9891,
+    "rejected_contract_count": 2099,
+    "observed_min_strike": 50,
+    "observed_max_strike": 1480,
+    "gex_unit": "usd_delta_notional_per_1pct_move",
+    "sign_convention": "calls_positive_puts_negative",
+    "analysis_type": "current_distribution"
+  },
+  "endpoint_version": "2026.09.30"
+}

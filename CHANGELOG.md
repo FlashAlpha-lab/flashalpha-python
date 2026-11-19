@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 - 2026-11-19
+
+### Added
+- **expiry impact** (`fa.expiry_impact(symbol, expiry=None, limit=None)`) for `GET /v1/exposure/expiry-impact/{symbol}`: Compares the current SPY or QQQ gamma distribution with the same captured inputs after excluding one expiry. Requires Growth or higher.
+- **strike dependency** (`fa.strike_dependency(symbol, strike=...)`) for `GET /v1/exposure/strike-dependency/{symbol}`: Attributes the gamma at one exact observed SPY or QQQ strike to its expiries: does the level depend on a single maturity? Requires Growth or higher.
+
 ## 1.4.0 - 2026-11-06
 
 ### Added

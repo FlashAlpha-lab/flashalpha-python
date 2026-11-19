@@ -1,17 +1,24 @@
 """Unit tests for the FlashAlpha client — all API calls are mocked."""
 
+import json
+from decimal import Decimal
+from pathlib import Path
+
 import pytest
 import responses
 
 from flashalpha import (
+    ExpiryImpactResponse,
     FlashAlpha,
     AuthenticationError,
     FlashAlphaError,
     NotFoundError,
     RateLimitError,
     ServerError,
+    StrikeDependencyResponse,
     TierRestrictedError,
 )
+from flashalpha.client import _format_number
 
 BASE = "https://lab.flashalpha.com"
 
@@ -993,3 +1000,136 @@ def test_sell_window_below_required_plan_raises_tier_restricted(fa):
     )
     with pytest.raises(TierRestrictedError):
         fa.sell_window("SPY")
+
+
+# ── Expiry impact / strike dependency ───────────────────────────────
+#
+# Fixtures are real production responses captured 2026-11-19 (lists trimmed).
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _fixture(name):
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+@responses.activate
+def test_expiry_impact_sends_expiry_and_limit_and_returns_every_level(fa):
+    responses.get(f"{BASE}/v1/exposure/expiry-impact/SPY", json=_fixture("expiry_impact_live.json"))
+
+    result: ExpiryImpactResponse = fa.expiry_impact("SPY", expiry="2026-11-19", limit=3)
+
+    assert responses.calls[0].request.url == f"{BASE}/v1/exposure/expiry-impact/SPY?expiry=2026-11-19&limit=3"
+    assert result["selected_expiry"] == "2026-11-19"
+    assert result["available_expiries"][1] == "2026-11-20"
+    assert result["current"]["contract_count"] == 9891
+    assert result["excluding_expiry"]["status"] == "available"
+    assert "status" not in result["current"]
+    assert result["impact"]["removed_gross_share_pct"] == pytest.approx(4.374061987278384)
+    assert result["impact"]["net_sign_changed"] is False
+    assert result["impact"]["largest_gross_reductions"][0]["strike"] == 740
+    assert result["impact"]["strongest_remaining_concentrations"][1]["excluded_net_gex_usd"] < 0
+    assert result["strikes"][0]["excluded_gross_gex_usd"] == 0
+    assert result["facts"][0]["supporting_values"]["expiry"] == "2026-11-19"
+    assert result["facts"][1]["supporting_values"]["remaining_contract_count"] == 9738
+    assert result["reasons"][0]["contract_count"] == 600
+    assert result["reasons"][2]["contract_count"] is None
+    assert result["oi_as_of"] is None
+    assert result["observed_max_strike"] == 1480
+    assert result["data_as_of"]["node"] == "fa4"
+    assert result["endpoint_version"] == "2026.09.30"
+
+
+@responses.activate
+def test_expiry_impact_omits_expiry_and_limit_when_not_given(fa):
+    responses.get(f"{BASE}/v1/exposure/expiry-impact/SPY", json=_fixture("expiry_impact_live.json"))
+    fa.expiry_impact("SPY")
+    assert responses.calls[0].request.url == f"{BASE}/v1/exposure/expiry-impact/SPY"
+
+
+@responses.activate
+def test_strike_dependency_sends_a_fractional_strike_exactly(fa):
+    responses.get(f"{BASE}/v1/exposure/strike-dependency/SPY", json=_fixture("strike_dependency_live.json"))
+    fa.strike_dependency("SPY", strike=672.5)
+    assert responses.calls[0].request.url == f"{BASE}/v1/exposure/strike-dependency/SPY?strike=672.5"
+
+
+@responses.activate
+def test_strike_dependency_returns_every_level(fa):
+    responses.get(f"{BASE}/v1/exposure/strike-dependency/SPY", json=_fixture("strike_dependency_live.json"))
+
+    result: StrikeDependencyResponse = fa.strike_dependency("SPY", strike=670)
+
+    assert responses.calls[0].request.url == f"{BASE}/v1/exposure/strike-dependency/SPY?strike=670"
+    assert result["strike"] == 670
+    assert result["contract_count"] == 48
+    assert result["by_expiry"][0]["valuation_cutoff_at"] == "2026-11-19T21:00:00Z"
+    assert result["by_expiry"][0]["settlement_at"] is None
+    assert result["by_expiry"][1]["share_of_strike_gross_pct"] == pytest.approx(4.203198667972151)
+    assert result["by_expiry"][2]["calendar_days_to_expiry"] == 4
+    assert result["dominant_expiry"] == "2026-12-18"
+    assert result["dominant_expiry_share_pct"] == pytest.approx(22.973602773735948)
+    assert result["analysis_type"] == "strike_attribution"
+    assert result["data_as_of"]["node"] == "fa4"
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (672.5, "672.5"),
+        (670, "670"),
+        (670.0, "670.0"),
+        (0.0000001, "0.0000001"),
+        (1e16, "10000000000000000"),
+        (Decimal("672.50"), "672.50"),
+    ],
+)
+def test_strike_is_written_as_exact_decimal_text(value, expected):
+    assert _format_number(value) == expected
+
+
+@responses.activate
+def test_expiry_impact_below_growth_raises_tier_restricted(fa):
+    responses.get(
+        f"{BASE}/v1/exposure/expiry-impact/SPY",
+        json={"error": "tier_restricted", "message": "Requires Growth plan.", "current_plan": "Basic", "required_plan": "Growth"},
+        status=403,
+    )
+    with pytest.raises(TierRestrictedError) as exc_info:
+        fa.expiry_impact("SPY")
+    assert exc_info.value.required_plan == "Growth"
+
+
+@responses.activate
+def test_strike_dependency_below_growth_raises_tier_restricted(fa):
+    responses.get(
+        f"{BASE}/v1/exposure/strike-dependency/SPY",
+        json={"error": "tier_restricted", "message": "Requires Growth plan.", "current_plan": "Basic", "required_plan": "Growth"},
+        status=403,
+    )
+    with pytest.raises(TierRestrictedError):
+        fa.strike_dependency("SPY", strike=670)
+
+
+@responses.activate
+def test_expiry_impact_unsupported_symbol_surfaces_the_422(fa):
+    responses.get(
+        f"{BASE}/v1/exposure/expiry-impact/AAPL", json=_fixture("error_unsupported_symbol.json"), status=422
+    )
+    with pytest.raises(FlashAlphaError) as exc_info:
+        fa.expiry_impact("AAPL")
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.response["error"] == "unsupported_symbol"
+    assert exc_info.value.response["supported_symbols"] == ["SPY", "QQQ"]
+
+
+@responses.activate
+def test_strike_dependency_unknown_strike_raises_not_found(fa):
+    responses.get(
+        f"{BASE}/v1/exposure/strike-dependency/SPY", json=_fixture("error_strike_not_found.json"), status=404
+    )
+    with pytest.raises(NotFoundError) as exc_info:
+        fa.strike_dependency("SPY", strike=671.3)
+    assert responses.calls[0].request.url == f"{BASE}/v1/exposure/strike-dependency/SPY?strike=671.3"
+    assert exc_info.value.response["error"] == "strike_not_found"
+    assert exc_info.value.response["requested_strike"] == 671.3
