@@ -1,0 +1,115 @@
+{
+  "strike": 670,
+  "distance_from_spot_pct": -8.953165236416016,
+  "gross_gex_usd": 187959991.78647596,
+  "net_gex_usd": -175533366.10899687,
+  "call_gex_usd": 6213312.838739557,
+  "put_gex_usd": -181746678.9477364,
+  "contract_count": 48,
+  "by_expiry": [
+    {
+      "expiry": "2026-11-19",
+      "valuation_cutoff_at": "2026-11-19T21:00:00Z",
+      "last_trading_at": "2026-11-19T21:15:00Z",
+      "last_trading_status": "scheduled_regular_session",
+      "settlement_at": null,
+      "settlement_status": "unknown",
+      "calendar_days_to_expiry": 0,
+      "gross_share_pct": 0.10318767058863045,
+      "share_of_strike_gross_pct": 0.10318767058863045,
+      "gross_gex_usd": 193951.53716304564,
+      "net_gex_usd": -193951.53716304564,
+      "call_gex_usd": 0,
+      "put_gex_usd": -193951.53716304564,
+      "contract_count": 1
+    },
+    {
+      "expiry": "2026-11-20",
+      "valuation_cutoff_at": "2026-11-20T21:00:00Z",
+      "last_trading_at": "2026-11-20T21:15:00Z",
+      "last_trading_status": "scheduled_regular_session",
+      "settlement_at": null,
+      "settlement_status": "unknown",
+      "calendar_days_to_expiry": 1,
+      "gross_share_pct": 4.203198667972151,
+      "share_of_strike_gross_pct": 4.203198667972151,
+      "gross_gex_usd": 7900331.871089721,
+      "net_gex_usd": -7900331.871089721,
+      "call_gex_usd": 0,
+      "put_gex_usd": -7900331.871089721,
+      "contract_count": 1
+    },
+    {
+      "expiry": "2026-11-23",
+      "valuation_cutoff_at": "2026-11-23T21:00:00Z",
+      "last_trading_at": "2026-11-23T21:15:00Z",
+      "last_trading_status": "scheduled_regular_session",
+      "settlement_at": null,
+      "settlement_status": "unknown",
+      "calendar_days_to_expiry": 4,
+      "gross_share_pct": 0.25987807045440925,
+      "share_of_strike_gross_pct": 0.25987807045440925,
+      "gross_gex_usd": 488466.79988095985,
+      "net_gex_usd": -488466.79988095985,
+      "call_gex_usd": 0,
+      "put_gex_usd": -488466.79988095985,
+      "contract_count": 1
+    }
+  ],
+  "dominant_expiry": "2026-12-18",
+  "dominant_expiry_share_pct": 22.973602773735948,
+  "symbol": "SPY",
+  "underlying_price": 735.885,
+  "snapshot_id": "5eea47dec15e0c187d02cb26c72169df7e20d2d767b306db67ee9fd56323de86",
+  "generated_at": "2026-11-19T08:11:11.4481966Z",
+  "quote_at": "2026-11-19T01:00:00.26Z",
+  "greeks_oldest_at": "2026-11-18T14:30:38Z",
+  "greeks_newest_at": "2026-11-18T21:15:02Z",
+  "calculation_version": "gamma-context-v2",
+  "pricing_basis": "captured_cached_gamma_current_spot",
+  "data_status": "stale",
+  "reasons": [
+    {
+      "code": "expiry_clock_unverified",
+      "message": "Excluded 600 contract(s): expiry_clock_unverified.",
+      "contract_count": 600
+    },
+    {
+      "code": "gamma_unavailable",
+      "message": "Excluded 1499 contract(s): gamma_unavailable.",
+      "contract_count": 1499
+    },
+    {
+      "code": "oi_vintage_unknown",
+      "message": "The source does not carry a verified OI observation date; zero OI is a stored value, not evidence of a completed OI refresh.",
+      "contract_count": null
+    },
+    {
+      "code": "stale_inputs",
+      "message": "At least one known input predates the shared market-session freshness cutoff.",
+      "contract_count": null
+    }
+  ],
+  "oi_as_of": null,
+  "oi_vintage_status": "unknown",
+  "eligible_contract_count": 9891,
+  "rejected_contract_count": 2099,
+  "observed_min_strike": 50,
+  "observed_max_strike": 1480,
+  "gex_unit": "usd_delta_notional_per_1pct_move",
+  "sign_convention": "calls_positive_puts_negative",
+  "analysis_type": "strike_attribution",
+  "endpoint_version": "2026.09.30",
+  "data_as_of": {
+    "node": "fa4",
+    "equity_feed": "2026-11-19T05:00:00.137Z",
+    "equity_options_feed": "2026-11-18T21:15:02Z",
+    "index_feed": "2026-11-19T08:06:15.503973Z",
+    "index_options_feed": "2026-11-18T22:00:00Z",
+    "futures_feed": "2026-11-19T08:11:09.907Z",
+    "futures_options_feed": "2026-11-19T08:11:10.364Z",
+    "flow_feed": "2026-11-19T03:44:00Z",
+    "oi_feed": "2026-11-18T00:00:00Z",
+    "macro_feed": "2026-11-18T21:15:01Z"
+  }
+}

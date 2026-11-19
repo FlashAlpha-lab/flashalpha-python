@@ -5581,3 +5581,170 @@ class SellWindowResponse(TypedDict, total=False):
     # Response envelope, present on every successful response.
     endpoint_version: str
     data_as_of: DataAsOf
+
+
+# ── Expiry impact / strike dependency (SPY, QQQ) ────────────────────
+#
+# Typed models for ``GET /v1/exposure/expiry-impact/{symbol}`` and
+# ``GET /v1/exposure/strike-dependency/{symbol}`` (Growth+). Both responses
+# carry the same metadata fields (``GammaContextMetadata``). Every ``*_usd``
+# value is GEX in USD per 1% move; ``*_pct`` values are 0-100. Timestamps are
+# ISO-8601 UTC strings and expiries are ``yyyy-MM-dd`` strings.
+
+
+class GammaContextReason(TypedDict, total=False):
+    """One machine-coded reason behind ``data_status``."""
+
+    code: str
+    message: str
+    # Excluded-contract count for exclusion reasons, otherwise None.
+    contract_count: Optional[int]
+
+
+class GammaContextMetadata(TypedDict, total=False):
+    """Metadata shared by the expiry impact and strike dependency responses."""
+
+    symbol: str
+    underlying_price: float
+    # SHA-256 fingerprint of the captured inputs; identical inputs give identical IDs.
+    snapshot_id: str
+    generated_at: str
+    quote_at: Optional[str]
+    greeks_oldest_at: Optional[str]
+    greeks_newest_at: Optional[str]
+    calculation_version: str
+    # ``captured_cached_gamma_current_spot`` (SPY) or ``qqq_common_anchor_repriced`` (QQQ).
+    pricing_basis: str
+    # ``partial`` in normal operation (open-interest vintage is unknown), ``stale``
+    # when an input predates the market-session freshness cutoff, ``unavailable``
+    # when no contract qualifies.
+    data_status: str
+    reasons: List[GammaContextReason]
+    oi_as_of: Optional[str]
+    oi_vintage_status: str
+    eligible_contract_count: int
+    rejected_contract_count: int
+    observed_min_strike: Optional[float]
+    observed_max_strike: Optional[float]
+    gex_unit: str
+    sign_convention: str
+    analysis_type: str
+
+
+class GammaTotals(TypedDict, total=False):
+    """Gross, net, call and put GEX (USD per 1% move) and the contract count."""
+
+    gross_gex_usd: float
+    net_gex_usd: float
+    call_gex_usd: float
+    put_gex_usd: float
+    contract_count: int
+    # Present on ``excluding_expiry`` only: ``available``, ``zero_gross_exposure``
+    # or ``no_remaining_contracts``.
+    status: str
+
+
+class GammaExpiryRow(GammaTotals, total=False):
+    """One expiry's share of the gamma at a strike (``by_expiry`` row)."""
+
+    expiry: str
+    valuation_cutoff_at: str
+    last_trading_at: str
+    last_trading_status: str
+    settlement_at: Optional[str]
+    settlement_status: str
+    calendar_days_to_expiry: int
+    gross_share_pct: Optional[float]
+    # Omitted when null.
+    share_of_strike_gross_pct: float
+
+
+class GammaStrikeImpact(TypedDict, total=False):
+    """One strike's current, excluded and remaining gross/net GEX."""
+
+    strike: float
+    distance_from_spot_pct: float
+    current_gross_gex_usd: float
+    current_net_gex_usd: float
+    excluded_gross_gex_usd: float
+    excluded_net_gex_usd: float
+    remaining_gross_gex_usd: float
+    remaining_net_gex_usd: float
+    excluded_share_at_strike_pct: Optional[float]
+
+
+class GammaRemovalImpact(TypedDict, total=False):
+    """What changes when the selected expiry is excluded."""
+
+    # ``100 × excluded gross / current gross``. Null when current gross is zero.
+    removed_gross_share_pct: Optional[float]
+    retained_gross_share_pct: Optional[float]
+    # ``remaining net − current net`` (minus the excluded net).
+    net_gex_change_usd: float
+    net_sign_before: str
+    net_sign_after: str
+    net_sign_changed: Optional[bool]
+    # Top ``limit`` strikes by gross removed.
+    largest_gross_reductions: List[GammaStrikeImpact]
+    # Top ``limit`` strikes by gross remaining.
+    strongest_remaining_concentrations: List[GammaStrikeImpact]
+
+
+class GammaContextFact(TypedDict, total=False):
+    """A plain-language statement with its supporting values."""
+
+    code: str
+    text: str
+    # Keys vary by ``code``.
+    supporting_values: Dict[str, Any]
+
+
+class ExpiryImpactResponse(GammaContextMetadata, total=False):
+    """Expiry impact from ``GET /v1/exposure/expiry-impact/{symbol}`` (Growth+).
+
+    Compares the current SPY or QQQ gamma distribution with the same captured
+    inputs after excluding one expiry. Spot, Greeks and open interest are held
+    fixed, so this measures how much of today's concentration depends on one
+    maturity. It is not a forecast of post-expiry prices, dealer hedging or the
+    next session's chain.
+    """
+
+    selected_expiry: str
+    selection_source: str
+    available_expiries: List[str]
+    # The whole eligible chain.
+    current: GammaTotals
+    # The selected expiry.
+    excluded_expiry: GammaTotals
+    # The chain without the selected expiry.
+    excluding_expiry: GammaTotals
+    impact: GammaRemovalImpact
+    # Every eligible strike, whatever ``limit`` is.
+    strikes: List[GammaStrikeImpact]
+    facts: List[GammaContextFact]
+    # Response envelope, present on every successful response.
+    endpoint_version: str
+    data_as_of: DataAsOf
+
+
+class StrikeDependencyResponse(GammaContextMetadata, total=False):
+    """Strike dependency from ``GET /v1/exposure/strike-dependency/{symbol}`` (Growth+).
+
+    Attributes the gamma at one exact observed SPY or QQQ strike to its expiries:
+    does the level depend on a single maturity? It reports concentration at that
+    strike, not a support/resistance probability.
+    """
+
+    strike: float
+    distance_from_spot_pct: float
+    gross_gex_usd: float
+    net_gex_usd: float
+    call_gex_usd: float
+    put_gex_usd: float
+    contract_count: int
+    by_expiry: List[GammaExpiryRow]
+    dominant_expiry: Optional[str]
+    dominant_expiry_share_pct: Optional[float]
+    # Response envelope, present on every successful response.
+    endpoint_version: str
+    data_as_of: DataAsOf

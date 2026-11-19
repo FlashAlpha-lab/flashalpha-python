@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
         EarningsStrategiesResponse,
         EarningsVrpResponse,
         ExpectedMoveResponse,
+        ExpiryImpactResponse,
         ExposureBasketResponse,
         ExposureLevelsResponse,
         ExposureOiDiffResponse,
@@ -89,6 +91,7 @@ if TYPE_CHECKING:
         StockQuoteResponse,
         StockSummaryResponse,
         StrategyDecisionResponse,
+        StrikeDependencyResponse,
         StructureGreeksResponse,
         StructurePnlResponse,
         SurfaceResponse,
@@ -111,6 +114,14 @@ BASE_URL = "https://lab.flashalpha.com"
 def _seg(s: str) -> str:
     """URL-escape a single path segment (e.g. a ticker) — escapes / ? % etc."""
     return quote(s, safe="")
+
+
+def _format_number(value: float | Decimal | str) -> str:
+    """Exact, locale-independent decimal text for a query value: 672.5 -> "672.5".
+
+    Never scientific notation (``str(1e-07)`` is ``"1e-07"``) and never rounded.
+    """
+    return format(Decimal(str(value)), "f")
 
 
 class FlashAlpha:
@@ -361,6 +372,45 @@ class FlashAlpha:
         if top_n is not None:
             params["topN"] = top_n
         return self._get(f"/v1/exposure/oi-diff/{_seg(symbol)}", params or None)
+
+    def expiry_impact(
+        self, symbol: str, *, expiry: str | None = None, limit: int | None = None
+    ) -> ExpiryImpactResponse:
+        """Compares the current SPY or QQQ gamma distribution with the same captured
+        inputs after excluding one expiry. Requires Growth or higher.
+
+        Spot, Greeks and open interest are held fixed, so this measures how much
+        of today's concentration depends on one maturity. It is not a forecast of
+        post-expiry prices, dealer hedging or the next session's chain.
+
+        ``expiry`` (yyyy-MM-dd, optional) defaults to the nearest active eligible
+        expiry and must be one of ``available_expiries``. ``limit`` (1-20, default
+        5) sets the rows in ``impact.largest_gross_reductions`` and
+        ``impact.strongest_remaining_concentrations``; totals and ``strikes``
+        always use the full eligible chain. Other symbols return 422
+        ``unsupported_symbol``.
+        """
+        params: dict[str, Any] = {}
+        if expiry:
+            params["expiry"] = expiry
+        if limit is not None:
+            params["limit"] = limit
+        return self._get(f"/v1/exposure/expiry-impact/{_seg(symbol)}", params or None)
+
+    def strike_dependency(self, symbol: str, *, strike: float | Decimal) -> StrikeDependencyResponse:
+        """Attributes the gamma at one exact observed SPY or QQQ strike to its
+        expiries: does the level depend on a single maturity? Requires Growth or
+        higher.
+
+        It reports concentration at that strike, not a support/resistance
+        probability. ``strike`` is required and must be an exact listed strike;
+        the request is never snapped to a nearby strike (404 ``strike_not_found``).
+        Other symbols return 422 ``unsupported_symbol``.
+        """
+        return self._get(
+            f"/v1/exposure/strike-dependency/{_seg(symbol)}",
+            {"strike": _format_number(strike)},
+        )
 
     # ── Volatility / Liquidity (additional) ─────────────────────────
 
